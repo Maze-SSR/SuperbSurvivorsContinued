@@ -1,22 +1,17 @@
 SurvivorRandomSuits = {
-  ["Legendary"] = {};
-  ["VeryRare"] = {};
-  ["Rare"] = {};
-  ["Normal"] = {};
-  ["Uncommon"] = {};
-  ["Common"] = {};
-  ["Preset"] = {};
-};
+  ["Legendary"] = {},
+  ["VeryRare"] = {},
+  ["Rare"] = {},
+  ["Normal"] = {},
+  ["Uncommon"] = {},
+  ["Common"] = {},
+  ["Preset"] = {}
+}
 
 SurvivorRandomSuits["Legendary"]["Bathrobe1"] = {
   "Base.Hat_ShowerCap",
   "Base.LongCoat_Bathrobe",
   "Base.Shoes_Slippers"
-}
-SurvivorRandomSuits["VeryRare"]["Priest1"] = { -- Cows: Copied from Rare to prevent errors.
-  "Base.Shirt_Priest",
-  "Base.Trousers_Suit",
-  "Base.Socks_Ankle", "Base.Shoes_Black"
 }
 SurvivorRandomSuits["Rare"]["Bride1F"] = {
   "Base.WeddingDress", "Base.Shirt_FormalWhite",
@@ -25,7 +20,7 @@ SurvivorRandomSuits["Rare"]["Bride1F"] = {
 SurvivorRandomSuits["Rare"]["Groom1M"] = {
   "Base.Tie_BowTieFull", "Base.Gloves_WhiteTINT", "Base.WeddingJacket", "Base.Shirt_FormalWhite",
   "Base.Trousers_Suit",
-  "Base.Socks_Long", "Shoes_Black"
+  "Base.Socks_Long", "Base.Shoes_Black"
 }
 SurvivorRandomSuits["Rare"]["Priest1"] = {
   "Base.Shirt_Priest",
@@ -85,17 +80,22 @@ SurvivorRandomSuits["Rare"]["Fireman1"] = {
 }
 SurvivorRandomSuits["Rare"]["Police1"] = {
   "Base.Hat_Police",
-  "Shirt_PoliceBlue", "Base.Jacket_Police",
+  "Base.Tshirt_DefaultDECAL", "Base.Jacket_Police",
   "Base.Trousers_Police",
   "Base.Shoes_Black"
 }
-SurvivorRandomSuits["Rare"]["Deputy1"] = {
-  "Base.Hat_Police_Grey",
-  "Shirt_PoliceGrey", "Base.Jacket_Police",
-  "Base.Trousers_PoliceGrey",
-  "Base.Shoes_Black"
+SurvivorRandomSuits["Rare"]["Preset_Deputy"] = {
+  "Base.Hat_Police",
+  "Base.Shirt_PoliceBlue",
+  "Base.Trousers_Police",
+  "Base.Shoes_Black",
+  "Base.Belt",
+  "Base.Vest_BulletPolice",
+  "Base.Tshirt_WhiteTINT",
+  "Base.Glasses_Aviators",
+  "Base.HolsterDouble",
+  "Base.Watch_Right_ClassicBlack",
 }
-
 SurvivorRandomSuits["Normal"]["Hunter1"] = {
   "Base.Hat_BonnieHat_CamoGreen", "Base.Vest_Hunting_Camo",
   "Base.Trousers_CamoGreen",
@@ -273,7 +273,7 @@ SurvivorRandomSuits["Preset"]["Preset_Doctor"] = {
 SurvivorRandomSuits["Preset"]["Preset_Police"] = {
   "Base.Hat_Police_Grey",
   "Base.Jacket_Police",
-  "Base.Trousers_PoliceGrey",
+  "Base.Trousers_Police",
   "Base.Shoes_BlackBoots",
   "Base.Belt2"
 }
@@ -323,14 +323,12 @@ SurvivorRandomSuits["Preset"]["Preset_Leader"] = {
 SurvivorRandomSuits["Preset"]["Preset_Worker"] = {
   "Base.Hat_HardHatYellow",
   "Base.Shirt_Workman",
-  "Base.Trousers_DefaultTEXTURE",
-  "Base.Shoes_BlackBoots",
+  "Base.TrousersMesh_DenimLight",
+  "Base.Shoes_Black",
   "Base.Belt2"
 }
 SurvivorRandomSuits["Preset"]["Preset_Inmate"] = {
   "Base.Boilersuit_Prisoner",
-  "Base.Shoes_Slippers",
-  "Base.Socks_Ankle",
-  "Base.Tshirt_DefaultTEXTURE",
+  "Base.Shoes_Black",
   "Base.Belt2"
 }
