@@ -2,37 +2,36 @@ ModId = "SuperbSurvivorsContinued";
 
 --[[
     Credit to "haram gaming#4572" in PZ Discord for providing a text file writing example.
-    Credit to "albion#0123" in PZ Discord for explaining the difference between "getFileWriter" and "getModFileWriter"
-    CreateLogLine will create a log file under the "<user>/Zomboid/Lua/<ModId>/logs".
+    Credit to "albion#0123" for explaining the difference between getFileWriter and getModFileWriter.
+    CreateLogLine will create a log file under "<user>/Zomboid/Lua/<ModId>/logs".
 --]]
--- Use this function to write a line to a text file, this is useful to identify when and how many times a function is called.
 function CreateLogLine(fileName, isEnabled, newLine)
-    if (isEnabled) then
-        local timestamp = os.time();
-        local formattedTimeDay = os.date("%Y-%m-%d", timestamp);
-        local formattedTime = os.date("%Y-%m-%d %H:%M:%S", timestamp);
+    if isEnabled then
+        local timestamp = os.time()
+        local formattedTimeDay = os.date("%Y-%m-%d", timestamp)
+        local formattedTime = os.date("%Y-%m-%d %H:%M:%S", timestamp)
         local file = getFileWriter(
             ModId .. "/logs/" .. formattedTimeDay .. "_" .. ModId .. "_" .. fileName .. "_Logs.txt",
-            true, -- true to create file if null
-            true  -- true to "append" to existing file, false to replace.
-        );
-        local content = formattedTime .. " : " .. "CreateLogLine called";
+            true,
+            true
+        )
 
+        local content = formattedTime .. " : " .. "CreateLogLine called"
         if newLine then
-            content = formattedTime .. " : " .. newLine;
+            content = formattedTime .. " : " .. newLine
         end
 
-        file:write(content .. "\r\n");
-        file:close();
+        file:write(content .. "\r\n")
+        file:close()
     end
 end
 
 --[[
     Log the key-value pairs of a table to a specified file.
 -- ]]
-function LogTableKVPairs(fileName, isEnabled, table)
+function LogTableKVPairs(fileName, isEnabled, inputTable)
     if (isEnabled) then
-        for key, value in pairs(table) do
+        for key, value in pairs(inputTable) do
             CreateLogLine(fileName, isEnabled, "key:" .. tostring(key) .. " | value: " .. tostring(value));
         end
     end

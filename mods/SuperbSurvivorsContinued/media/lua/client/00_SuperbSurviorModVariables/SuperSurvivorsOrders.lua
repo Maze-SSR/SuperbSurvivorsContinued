@@ -1,5 +1,6 @@
--- Cows: Global Survivor Orders
--- Cows: This was moved out of the "SuperSurvivorUtilities.lua" file.
+-- SuperSurvivorsOrders.lua
+-- Global Survivor Orders for use in menus and logic
+
 Orders = {
     "Barricade",
     "Chop Wood",
@@ -24,56 +25,68 @@ Orders = {
     "Relax",
     "Return To Base",
     "Pile Corpses",
-};
+    -- New Orders:
+    "Loot Canned Food",
+    "Find Can Opener",
+    "Scout Building"
+}
 
 OrderDesc = {
     ["Barricade"] = getText("ContextMenu_SS_OrderDesc_Barricade"),
-    ["Farming"] = getText("ContextMenu_SS_OrderDesc_Farming"),
     ["Chop Wood"] = getText("ContextMenu_SS_OrderDesc_Chop_Wood"),
+    ["Clean Up Inventory"] = getText("ContextMenu_SS_OrderDesc_Clean_Up_Inventory"),
+    ["Doctor"] = getText("ContextMenu_SS_OrderDesc_Doctor"),
     ["Explore"] = getText("ContextMenu_SS_OrderDesc_Explore"),
     ["Follow"] = getText("ContextMenu_SS_OrderDesc_Follow"),
+    ["Farming"] = getText("ContextMenu_SS_OrderDesc_Farming"),
     ["Forage"] = getText("ContextMenu_SS_OrderDesc_Forage"),
-    ["Guard"] = getText("ContextMenu_SS_OrderDesc_Guard"),
-    ["Patrol"] = getText("ContextMenu_SS_OrderDesc_Patrol"),
-    ["Stand Ground"] = getText("ContextMenu_SS_OrderDesc_Stand_Ground"),
-    ["Loot Room"] = getText("ContextMenu_SS_OrderDesc_Loot_Room"),
-    ["Lock Doors"] = getText("ContextMenu_SS_OrderDesc_Lock_Doors"),
-    ["Doctor"] = getText("ContextMenu_SS_OrderDesc_Doctor"),
-    ["Go Find Food"] = getText("ContextMenu_SS_OrderDesc_Go_Find_Food"),
-    ["Go Find Weapon"] = getText("ContextMenu_SS_OrderDesc_Go_Find_Weapon"),
-    ["Go Find Water"] = getText("ContextMenu_SS_OrderDesc_Go_Find_Water"),
-    ["Sort Loot Into Base"] = "Sort all held Loot Into Base Area containers based on item type",
-    ["Clean Up Inventory"] = getText("ContextMenu_SS_OrderDesc_Clean_Up_Inventory"),
     ["Gather Wood"] = getText("ContextMenu_SS_OrderDesc_Gather_Wood"),
+    ["Go Find Food"] = getText("ContextMenu_SS_OrderDesc_Go_Find_Food"),
+    ["Go Find Water"] = getText("ContextMenu_SS_OrderDesc_Go_Find_Water"),
+    ["Go Find Weapon"] = getText("ContextMenu_SS_OrderDesc_Go_Find_Weapon"),
+    ["Guard"] = getText("ContextMenu_SS_OrderDesc_Guard"),
+    ["Lock Doors"] = getText("ContextMenu_SS_OrderDesc_Lock_Doors"),
+    ["Loot Room"] = getText("ContextMenu_SS_OrderDesc_Loot_Room"),
+    ["Patrol"] = getText("ContextMenu_SS_OrderDesc_Patrol"),
+    ["Sort Loot Into Base"] = getText("ContextMenu_SS_OrderDesc_Sort_Loot"),
+    ["Stand Ground"] = getText("ContextMenu_SS_OrderDesc_Stand_Ground"),
+    ["Stop"] = getText("ContextMenu_SS_OrderDesc_Stop"),
     ["Dismiss"] = getText("ContextMenu_SS_OrderDesc_Dismiss"),
     ["Relax"] = getText("ContextMenu_SS_OrderDesc_Relax"),
-    ["Pile Corpses"] = getText("ContextMenu_SS_OrderDesc_Pile_Corpses"),
     ["Return To Base"] = getText("ContextMenu_SS_OrderDesc_Return_To_Base"),
-    ["Stop"] = getText("ContextMenu_SS_OrderDesc_Stop")
-};
+    ["Pile Corpses"] = getText("ContextMenu_SS_OrderDesc_Pile_Corpses"),
+    -- New Order Descriptions
+    ["Loot Canned Food"] = getText("ContextMenu_SS_OrderDesc_Loot_Canned_Food"),
+    ["Find Can Opener"] = getText("ContextMenu_SS_OrderDesc_Find_Can_Opener"),
+    ["Scout Building"] = getText("ContextMenu_SS_OrderDesc_Scout_Building")
+}
 
 OrderDisplayName = {
-    ["Farming"] = getText("ContextMenu_SS_OrderDisplayName_Farming"),
     ["Barricade"] = getText("ContextMenu_SS_OrderDisplayName_Barricade"),
     ["Chop Wood"] = getText("ContextMenu_SS_OrderDisplayName_Chop_Wood"),
+    ["Clean Up Inventory"] = getText("ContextMenu_SS_OrderDisplayName_Clean_Up_Inventory"),
+    ["Doctor"] = getText("ContextMenu_SS_OrderDisplayName_Doctor"),
     ["Explore"] = getText("ContextMenu_SS_OrderDisplayName_Explore"),
     ["Follow"] = getText("ContextMenu_SS_OrderDisplayName_Follow"),
+    ["Farming"] = getText("ContextMenu_SS_OrderDisplayName_Farming"),
     ["Forage"] = getText("ContextMenu_SS_OrderDisplayName_Forage"),
-    ["Guard"] = getText("ContextMenu_SS_OrderDisplayName_Guard"),
-    ["Patrol"] = getText("ContextMenu_SS_OrderDisplayName_Patrol"),
-    ["Stand Ground"] = getText("ContextMenu_SS_OrderDisplayName_Stand_Ground"),
-    ["Loot Room"] = getText("ContextMenu_SS_OrderDisplayName_Loot_Room"),
-    ["Lock Doors"] = getText("ContextMenu_SS_OrderDisplayName_Lock_Doors"),
-    ["Doctor"] = getText("ContextMenu_SS_OrderDisplayName_Doctor"),
-    ["Go Find Food"] = getText("ContextMenu_SS_OrderDisplayName_Go_Find_Food"),
-    ["Go Find Weapon"] = getText("ContextMenu_SS_OrderDisplayName_Go_Find_Weapon"),
-    ["Go Find Water"] = getText("ContextMenu_SS_OrderDisplayName_Go_Find_Water"),
-    ["Clean Up Inventory"] = getText("ContextMenu_SS_OrderDisplayName_Clean_Up_Inventory"),
-    ["Sort Loot Into Base"] = "Sort Loot Into Base",
     ["Gather Wood"] = getText("ContextMenu_SS_OrderDisplayName_Gather_Wood"),
+    ["Go Find Food"] = getText("ContextMenu_SS_OrderDisplayName_Go_Find_Food"),
+    ["Go Find Water"] = getText("ContextMenu_SS_OrderDisplayName_Go_Find_Water"),
+    ["Go Find Weapon"] = getText("ContextMenu_SS_OrderDisplayName_Go_Find_Weapon"),
+    ["Guard"] = getText("ContextMenu_SS_OrderDisplayName_Guard"),
+    ["Lock Doors"] = getText("ContextMenu_SS_OrderDisplayName_Lock_Doors"),
+    ["Loot Room"] = getText("ContextMenu_SS_OrderDisplayName_Loot_Room"),
+    ["Patrol"] = getText("ContextMenu_SS_OrderDisplayName_Patrol"),
+    ["Sort Loot Into Base"] = getText("ContextMenu_SS_OrderDisplayName_Sort_Loot"),
+    ["Stand Ground"] = getText("ContextMenu_SS_OrderDisplayName_Stand_Ground"),
+    ["Stop"] = getText("ContextMenu_SS_OrderDisplayName_Stop"),
     ["Dismiss"] = getText("ContextMenu_SS_OrderDisplayName_Dismiss"),
     ["Relax"] = getText("ContextMenu_SS_OrderDisplayName_Relax"),
-    ["Pile Corpses"] = getText("ContextMenu_SS_OrderDisplayName_Pile_Corpses"),
     ["Return To Base"] = getText("ContextMenu_SS_OrderDisplayName_Return_To_Base"),
-    ["Stop"] = getText("ContextMenu_SS_OrderDisplayName_Stop")
-};
+    ["Pile Corpses"] = getText("ContextMenu_SS_OrderDisplayName_Pile_Corpses"),
+    -- New Order Display Names
+    ["Loot Canned Food"] = getText("ContextMenu_SS_OrderDisplayName_Loot_Canned_Food"),
+    ["Find Can Opener"] = getText("ContextMenu_SS_OrderDisplayName_Find_Can_Opener"),
+    ["Scout Building"] = getText("ContextMenu_SS_OrderDisplayName_Scout_Building")
+}
