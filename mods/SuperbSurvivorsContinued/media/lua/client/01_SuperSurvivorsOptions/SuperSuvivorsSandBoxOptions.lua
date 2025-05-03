@@ -1,54 +1,54 @@
-function Get_SS_SandboxOptions()
-    local ss_options = SandboxVars.SuperbSurvivorsContinued;
-    -- Group Size applies to both npcs and raiders.
-    Max_Group_Size = ss_options.Max_Group_Size;
-    -- Min_Group_Size = ss_options.Min_Group_Size; -- Cows: Doesn't need to be set, min group size is always 1.
+-- SSConfig holds sandbox options safely to avoid global pollution
+SSConfig = {}
 
-    -- NPC Spawning
-    Limit_Npc_Groups = ss_options.Limit_Npc_Groups;
-    Limit_Npcs_Spawn = ss_options.Limit_Npcs_Spawn;
-    -- Sets ALL skills of all NPCs to level 10. 设置所有npc的技能等级为10级
-    Perk_Level = ss_options.Perk_Level;
-    IsWifeSpawn = ss_options.IsWifeSpawn;
-    -- Add an optional number of companions in sandbox mode..
-    WifeCount = ss_options.WifeCount;
-    -- Wife Is Female
-    WifeIsFemale = ss_options.WifeIsFemale;
-    NpcGroupsSpawnsSize = ss_options.NpcGroupsSpawnsSize;
-    NpcSpawnChance = ss_options.NpcSpawnChance;
-    HostileSpawnRateBase = ss_options.HostileSpawnRateBase;
-    HostileSpawnRateMax = ss_options.HostileSpawnRateMax;
+-- Default fallback values in case SandboxVars are missing or incomplete
+local defaultOptions = {
+    Max_Group_Size = 4,
+    Limit_Npc_Groups = 8,
+    Limit_Npcs_Spawn = 22,
+    Perk_Level = 0,
+    IsWifeSpawn = true,
+    WifeCount = 1,
+    WifeIsFemale = true,
+    NpcGroupsSpawnsSize = 4,
+    NpcSpawnChance = 50,
+    HostileSpawnRateBase = 1,
+    HostileSpawnRateMax = 10,
+    RaidersSpawnChance = 50,
+    RaidersStartAfterHours = 0,
+    CanIdleChat = false,
+    CanNpcsCreateBase = false,
+    IsInfiniteAmmoEnabled = true,
+    IsRoleplayEnabled = false,
+    IsSpeakEnabled = true,
+    SurvivorCanFindWork = true,
+    SurvivorNeedsFoodWater = false,
+    SurvivorBravery = 6,
+    SurvivorFriendliness = 10,
+    SleepGeneralHealRate = 5,
+    GFollowDistance = 5,
+    PanicDistance = 21,
+    WepSpawnRateGun = 50,
+    WepSpawnRateMelee = 100,
+    IsPlayerBaseSafe = true,
+    IsPVPEnabled = true,
+    IsDisplayingNpcName = true,
+    IsDisplayingHostileColor = true,
+}
 
-    -- Raiders, Always hostile
-    RaidersSpawnChance = ss_options.RaidersSpawnChance;
-    RaidersStartAfterHours = ss_options.RaidersStartAfterHours;
+local function Load_SandboxOptions()
+    local vars = SandboxVars and SandboxVars.SuperbSurvivorsContinued
+    if not vars then
+        print("[SuperbSurvivors] Warning: SandboxVars.SuperbSurvivorsContinued not found. Using default options.")
+        vars = {}
+    end
 
-    -- NPC Configuration
-    CanIdleChat = ss_options.CanIdleChat;
-    CanNpcsCreateBase = ss_options.CanNpcsCreateBase;
-    IsInfiniteAmmoEnabled = ss_options.IsInfiniteAmmoEnabled;
-    IsRoleplayEnabled = ss_options.IsRoleplayEnabled;
-    IsSpeakEnabled = ss_options.IsSpeakEnabled;
-    SurvivorCanFindWork = ss_options.SurvivorCanFindWork;
-    SurvivorNeedsFoodWater = ss_options.SurvivorNeedsFoodWater;
-    SurvivorBravery = ss_options.SurvivorBravery;
-    SurvivorFriendliness = ss_options.SurvivorFriendliness;
-    SleepGeneralHealRate = ss_options.SleepGeneralHealRate;
-    GFollowDistance = ss_options.GFollowDistance;
-    PanicDistance = ss_options.PanicDistance;
-    WepSpawnRateGun = ss_options.WepSpawnRateGun;
-    WepSpawnRateMelee = ss_options.WepSpawnRateMelee;
+    for key, default in pairs(defaultOptions) do
+        SSConfig[key] = vars[key] ~= nil and vars[key] or default
+    end
 
-    -- Player Related
-    IsPlayerBaseSafe = ss_options.IsPlayerBaseSafe;
-    IsPVPEnabled = ss_options.IsPVPEnabled;
-
-    -- UI Related
-    IsDisplayingNpcName = ss_options.IsDisplayingNpcName;
-    IsDisplayingHostileColor = ss_options.IsDisplayingHostileColor;
-
-    return ss_options;
+    print("[SuperbSurvivors] Sandbox options loaded successfully.")
 end
 
--- Cows: Credits to "albion#0123" on discord for explaining Events orders... otherwise sandbox-options are never updated.
-Events.OnInitGlobalModData.Add(Get_SS_SandboxOptions);
+-- B42+ correct event hook
+Events.OnSandboxOptionsLoaded.Add(Load_SandboxOptions)
