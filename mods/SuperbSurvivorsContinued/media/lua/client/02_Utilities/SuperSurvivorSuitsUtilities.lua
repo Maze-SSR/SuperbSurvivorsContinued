@@ -1,81 +1,76 @@
+-- SuperSurvivorSuitsUtilities.lua
+-- Handles random and specific outfit assignment to survivors
+
 require "00_SuperbSurviorModVariables/SuperSurvivorsSuitsList"
--- this file has the functions for survivor's suits
 
-local isLocalLoggingEnabled = false;
+local isLocalLoggingEnabled = false
 
---- Gets a random outfit for a survivor
----@param SS any survivor that will wear the outfit
+---@alias SuitRarity "Common" | "Uncommon" | "Normal" | "Rare" | "VeryRare" | "Legendary" | "Preset"
+
+--- Assigns a random outfit to a survivor based on rarity probability
+---@param SS table Survivor object with :WearThis() and .player:isFemale()
 function GetRandomSurvivorSuit(SS)
-	CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "GetRandomSurvivorSuit() called");
+    CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "GetRandomSurvivorSuit() called")
 
-	local roll = ZombRand(0, 101)
-	local tempTable = nil
-	CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "rolled: " .. tostring(roll));
+    local roll = ZombRand(0, 101)
+    local rarity
+    local suitPool
 
-	if (roll == 1) then -- choose legendary suit
-		CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Got: " .. "Legendary suit");
-		tempTable = SurvivorRandomSuits["Legendary"]
-	elseif (roll <= 5) then -- choose veryrare suit
-		CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Got: " .. "VeryRare suit");
-		tempTable = SurvivorRandomSuits["VeryRare"]
-	elseif (roll <= 15) then -- choose rare suit
-		CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Got: " .. "Rare suit");
-		tempTable = SurvivorRandomSuits["Rare"]
-	elseif (roll <= 25) then -- chose normal suit
-		CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Got: " .. "Normal suit");
-		tempTable = SurvivorRandomSuits["Normal"]
-	elseif (roll <= 40) then -- chose uncommon suit
-		CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Got: " .. "Uncommon suit");
-		tempTable = SurvivorRandomSuits["Uncommon"]
-	else -- chose common suit
-		CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Got: " .. "Common suit");
-		tempTable = SurvivorRandomSuits["Common"]
-	end
+    -- Determine suit rarity by roll
+    if roll == 1 then
+        rarity = "Legendary"
+    elseif roll <= 5 then
+        rarity = "VeryRare"
+    elseif roll <= 15 then
+        rarity = "Rare"
+    elseif roll <= 25 then
+        rarity = "Normal"
+    elseif roll <= 40 then
+        rarity = "Uncommon"
+    else
+        rarity = "Common"
+    end
 
-	local result = table.randFrom(tempTable)
-	CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "result: " .. tostring(result));
+    CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Selected rarity: " .. rarity)
+    suitPool = SurvivorRandomSuits[rarity]
+    if not suitPool then return end
 
-	while (string.sub(result, -1) == "F"
-			and not SS.player:isFemale())
-		or (string.sub(result, -1) == "M"
-			and SS.player:isFemale()) do
-		result = table.randFrom(tempTable)
-	end
+    -- Select a gender-appropriate suit name
+    local suitName = table.randFrom(suitPool)
+    while (string.sub(suitName, -1) == "F" and not SS.player:isFemale()) or
+          (string.sub(suitName, -1) == "M" and SS.player:isFemale()) do
+        suitName = table.randFrom(suitPool)
+    end
 
-	CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Random suit result: " .. tostring(result));
+    CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "Selected suit: " .. tostring(suitName))
 
-	local suitTable = tempTable[result];
-	-- WIP - Cows: Why even iterate? I thought the suit was mapped?...
-	for i = 1, #suitTable do
-		if (suitTable[i] ~= nil) then
-			SS:WearThis(suitTable[i])
-		end
-	end
+    -- Wear all items from the selected suit table
+    local suitItems = suitPool[suitName]
+    if suitItems then
+        for _, item in ipairs(suitItems) do
+            if item then
+                SS:WearThis(item)
+            end
+        end
+    end
 
-	CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "--- GetRandomSurvivorSuit() end ---");
+    CreateLogLine("SuperSurvivorSuitsUtilities", isLocalLoggingEnabled, "--- GetRandomSurvivorSuit() end ---")
 end
 
----@alias rarity
----| "Common"
----| "Uncommon"
----| "Normal"
----| "Rare"
----| "VeryRare"
----| "Legendary"
----| "Preset"
+--- Assigns a specific suit to a survivor if available
+---@param SS table Survivor object
+---@param rarity SuitRarity The rarity category table
+---@param suitName string Specific name of the suit to assign
+function SetRandomSurvivorSuit(SS, rarity, suitName)
+    local suitPool = SurvivorRandomSuits[rarity]
+    if not suitPool then return end
 
---- sets an outfit for a survivor given if table and outfit found
----@param SS any
----@param tbl rarity table name to be searched
----@param name string outfit name
-function SetRandomSurvivorSuit(SS, tbl, name)
-	local suitTable = SurvivorRandomSuits[tbl][name]
-	if suitTable then
-		-- WIP - Cows: Why even iterate? I thought the suit was mapped?...
-		for i = 1, #suitTable do
-			if (suitTable[i] ~= nil) then
-				SS:WearThis(suitTable[i])
-			end
-		end
-	end
+    local suitItems = suitPool[suitName]
+    if suitItems then
+        for _, item in ipairs(suitItems) do
+            if item then
+                SS:WearThis(item)
+            end
+        end
+    end
 end
