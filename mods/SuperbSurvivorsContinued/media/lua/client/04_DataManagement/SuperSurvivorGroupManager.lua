@@ -2,13 +2,10 @@ SuperSurvivorGroupManager = {}
 SuperSurvivorGroupManager.__index = SuperSurvivorGroupManager
 
 function SuperSurvivorGroupManager:new()
-	local o = {}
-	setmetatable(o, self)
-	self.__index = self
-
+	local o = setmetatable({}, self)
 	o.Groups = {}
 	o.GroupCount = 0
-
+	o.NextGroupID = 1
 	return o
 end
 
@@ -17,9 +14,9 @@ function SuperSurvivorGroupManager:GetGroupById(thisID)
 end
 
 function SuperSurvivorGroupManager:GetGroupIdFromSquare(square)
-	for i = 0, self.GroupCount do
-		if (self.Groups[i]) and (self.Groups[i]:IsInBounds(square)) then
-			return self.Groups[i]:getID()
+	for id, group in pairs(self.Groups) do
+		if group and group:IsInBounds(square) then
+			return group:getID()
 		end
 	end
 	return -1
@@ -30,33 +27,31 @@ function SuperSurvivorGroupManager:getCount()
 end
 
 function SuperSurvivorGroupManager:newGroup()
-	local groupID = self.GroupCount
-	for i = 0, self.GroupCount do
-		if (self.Groups[i]) and (self.Groups[i]:getID() >= groupID) then
-			groupID = self.Groups[i]:getID() + 1
-		end
-	end
+	local groupID = self.NextGroupID
+	local newGroup = SuperSurvivorGroup:new(groupID)
 
-	self.Groups[groupID] = SuperSurvivorGroup:new(groupID)
-	self.GroupCount = groupID + 1
-	return self.Groups[groupID]
+	self.Groups[groupID] = newGroup
+	self.GroupCount = self.GroupCount + 1
+	self.NextGroupID = self.NextGroupID + 1
+
+	return newGroup
 end
 
 function SuperSurvivorGroupManager:Save()
-	for i = 0, self.GroupCount do
-		if (self.Groups[i]) then
-			self.Groups[i]:Save() -- WIP - console.txt logged an error tracing to this line
+	for id, group in pairs(self.Groups) do
+		if group then
+			group:Save()
 		end
 	end
 end
 
 function SuperSurvivorGroupManager:Load()
-	if (DoesFileExist("SurvivorGroup0.lua")) then -- only load if any groups detected at all
-		self.GroupCount = 0
-
-		while DoesFileExist("SurvivorGroup" .. tostring(self.GroupCount) .. ".lua") do
+	if DoesFileExist("SurvivorGroup0.lua") then
+		local groupIndex = 0
+		while DoesFileExist("SurvivorGroup" .. tostring(groupIndex) .. ".lua") do
 			local newGroup = self:newGroup()
 			newGroup:Load()
+			groupIndex = groupIndex + 1
 		end
 	end
 end
