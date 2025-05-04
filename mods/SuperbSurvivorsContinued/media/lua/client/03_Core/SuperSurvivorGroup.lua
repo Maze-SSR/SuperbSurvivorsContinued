@@ -1,655 +1,639 @@
-require "04_Group.SuperSurvivorManager" -- Cows: TODO: Remove all dependencies on SSM.
+require "04_Group.SuperSurvivorManager" -- TODO: Eventually remove dependency on global SSM
 
 SuperSurvivorGroup = {}
 SuperSurvivorGroup.__index = SuperSurvivorGroup
 
-local isLocalLoggingEnabled = false;
+local isLocalLoggingEnabled = false
 
 function SuperSurvivorGroup:new(GID)
-	local o = {};
-	setmetatable(o, self);
-	self.__index = self;
+	local o = setmetatable({}, self)
 
-	o.ROE = 3;
-	o.YouBeenWarned = {};
-	o.ID = GID;
-	o.Leader = -1;
-	o.Members = {};
-	o.Bounds = { 0, 0, 0, 0, 0 };
+	o.ROE = 3 -- Rules of Engagement
+	o.YouBeenWarned = {}
+	o.ID = GID
+	o.Leader = -1
+	o.Members = {}
+	o.Bounds = { 0, 0, 0, 0, 0 }
 
-	o.GroupAreas = {}
-	o.GroupAreas["ChopTreeArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["TakeCorpseArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["TakeWoodArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["FarmingArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["ForageArea"] = { 0, 0, 0, 0, 0 };
+	o.GroupAreas = {
+		ChopTreeArea = { 0, 0, 0, 0, 0 },
+		TakeCorpseArea = { 0, 0, 0, 0, 0 },
+		TakeWoodArea = { 0, 0, 0, 0, 0 },
+		FarmingArea = { 0, 0, 0, 0, 0 },
+		ForageArea = { 0, 0, 0, 0, 0 },
+		CorpseStorageArea = { 0, 0, 0, 0, 0 },
+		FoodStorageArea = { 0, 0, 0, 0, 0 },
+		WoodStorageArea = { 0, 0, 0, 0, 0 },
+		ToolStorageArea = { 0, 0, 0, 0, 0 },
+		WeaponStorageArea = { 0, 0, 0, 0, 0 },
+		MedicalStorageArea = { 0, 0, 0, 0, 0 },
+		GuardArea = { 0, 0, 0, 0, 0 },
+	}
 
-	o.GroupAreas["CorpseStorageArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["FoodStorageArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["WoodStorageArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["ToolStorageArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["WeaponStorageArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["MedicalStorageArea"] = { 0, 0, 0, 0, 0 };
-	o.GroupAreas["GuardArea"] = { 0, 0, 0, 0, 0 };
-
-	return o;
+	return o
 end
 
-function SuperSurvivorGroup:setROE(tothis)
-	self.ROE = tothis;
+function SuperSurvivorGroup:setROE(value)
+	self.ROE = value
 end
 
 function SuperSurvivorGroup:getFollowCount()
-	local count = 0;
-	local members = self:getMembers();
-	for i = 1, #members do
-		if (members[i] ~= nil) and (members[i].getCurrentTask ~= nil) then
-			if (members[i]:getCurrentTask() == "Follow") then
-				count = count + 1;
-			end
+	local count = 0
+	for _, memberID in ipairs(self.Members) do
+		local member = SSM:Get(memberID)
+		if member and member.getCurrentTask and member:getCurrentTask() == "Follow" then
+			count = count + 1
 		end
 	end
-	return count;
+	return count
 end
 
 function SuperSurvivorGroup:isEnemy(SS, character)
-	-- zombie is enemy to anyone
-	if character:isZombie() then
-		return true;
-	elseif (SS:isInGroup(character)) then
-		return false;
-	elseif (SS.player:getModData().isHostile ~= true and character:getModData().surender == true) then
-		return false; -- so other npcs dont attack anyone surendering
-	elseif (SS.player:getModData().hitByCharacter == true) and (character:getModData().semiHostile == true) then
-		return true;
-	elseif (character:getModData().isHostile ~= SS.player:getModData().isHostile) then
-		return true;
-	elseif (self.ROE == 4) then
-		return true;
-	end
-	return false;
+	if character:isZombie() then return true end
+	if SS:isInGroup(character) then return false end
+	if not SS.player:getModData().isHostile and character:getModData().surender then return false end
+	if SS.player:getModData().hitByCharacter and character:getModData().semiHostile then return true end
+	if character:getModData().isHostile ~= SS.player:getModData().isHostile then return true end
+	if self.ROE == 4 then return true end
+	return false
 end
 
-function SuperSurvivorGroup:UseWeaponType(thisType)
-	local members = self:getMembers();
-	--
-	for i = 1, #members do
-		if (thisType == "gun") and (members[i].reEquipGun ~= nil) then
-			members[i]:reEquipGun();
-		elseif (members[i].reEquipMele ~= nil) then
-			members[i]:reEquipMele();
-		end
-	end
-end
-
-function SuperSurvivorGroup:getGroupArea(thisArea)
-	return self.GroupAreas[thisArea];
-end
-
-function SuperSurvivorGroup:getGroupAreaCenterSquare(thisArea)
-	local area = self.GroupAreas[thisArea];
-	if (area[1] ~= 0) then
-		return GetCenterSquareFromArea(area[1], area[2], area[3], area[4], area[5]);
-	else
-		return nil;
-	end
-end
-
-function SuperSurvivorGroup:getBestGroupAreaContainerForItem(item) -- returns most appropriate container(or square) for an item based on set base areas
-	local itemtype = item:getType();
-	local itemcategory = item:getCategory();
-
-	local overrideMedical = { "Bandaid", "Tweezers", "Bandage", "AlcoholBandage", "AlcoholWipes", "RippedSheets",
-		"AlcoholRippedSheets" };
-	local overrideTool = { "Axe", "Hammer", "Nails", "NailsBox", "BallPeenHammer", "Sledgehammer", "Sledgehammer2",
-		"HammerStone", "GardenSaw", "Saw"
-	, "ScrewsBox", "Screws", "Screwdriver", "HandAxe", "HandShovel", "HandScyth" };
-	local overrideWood = { "Log", "Plank", "WoodenStick", "TreeBranch" };
-
-	--using only "if" not "elseif" because this is a top down priority checking system, multiple if statements can be true for certain items so if certain areas are set those will be prioritized
-
-	if (CheckIfTableHasValue(overrideWood, itemtype) and self:isGroupAreaSet("WoodStorageArea")) then
-		return self:getGroupAreaContainer("WoodStorageArea");
-	end
-	if (CheckIfTableHasValue(overrideMedical, itemtype) and self:isGroupAreaSet("MedicalStorageArea")) then
-		return self:getGroupAreaContainer("MedicalStorageArea");
-	end
-	if (CheckIfTableHasValue(overrideTool, itemtype) and self:isGroupAreaSet("ToolStorageArea")) then
-		return self:getGroupAreaContainer("ToolStorageArea");
-	end
-	if ((itemcategory == "Food") and self:isGroupAreaSet("FoodStorageArea")) then
-		return self:getGroupAreaContainer("FoodStorageArea");
-	end
-	--
-	if (((itemcategory == "Weapon") or (itemcategory == "WeaponPart")) and self:isGroupAreaSet("WeaponStorageArea")) then
-		return self:getGroupAreaContainer("WeaponStorageArea");
-	end
-	--
-	if (((itemcategory == "Normal") or (itemcategory == "Item"))
-			and self:isGroupAreaSet("ToolStorageArea")
-		) then
-		return self:getGroupAreaContainer("ToolStorageArea");
-	end
-
-	return nil;
-end
-
-function SuperSurvivorGroup:isGroupAreaSet(thisArea)
-	local area = self.GroupAreas[thisArea];
-	if (area[1] ~= 0) then
-		return true;
-	end
-
-	return false;
-end
-
----Cows: Nested loop...
----@param thisArea any
----@return unknown
-function SuperSurvivorGroup:getGroupAreaContainer(thisArea) -- returns any container found in area or the center square of that area if no containers found
-	local area = self.GroupAreas[thisArea]
-	if (area[1] ~= 0) then
-		--
-		for x = area[1], area[2] do
-			--
-			for y = area[3], area[4] do
-				local sq = getCell():getGridSquare(x, y, 0);
-				--
-				if (sq) then
-					local objs = sq:getObjects();
-					--
-					for j = 0, objs:size() - 1 do
-						--
-						if (objs:get(j):getContainer() ~= nil) then
-							return objs:get(j);
-						end
-					end
-				end
+function SuperSurvivorGroup:UseWeaponType(weaponType)
+	for _, memberID in ipairs(self.Members) do
+		local member = SSM:Get(memberID)
+		if member then
+			if weaponType == "gun" and member.reEquipGun then
+				member:reEquipGun()
+			elseif member.reEquipMele then
+				member:reEquipMele()
 			end
 		end
 	end
-
-	return self:getGroupAreaCenterSquare(thisArea);
 end
 
-function SuperSurvivorGroup:setGroupArea(thisArea, x1, x2, y1, y2, z)
-	self.GroupAreas[thisArea][1] = x1;
-	self.GroupAreas[thisArea][2] = x2;
-	self.GroupAreas[thisArea][3] = y1;
-	self.GroupAreas[thisArea][4] = y2;
-	self.GroupAreas[thisArea][5] = z;
+function SuperSurvivorGroup:getGroupArea(areaName)
+	return self.GroupAreas[areaName]
 end
 
-function SuperSurvivorGroup:getBounds()
-	return self.Bounds;
-end
-
-function SuperSurvivorGroup:setBounds(Boundaries)
-	self.Bounds = Boundaries;
-end
-
-function SuperSurvivorGroup:IsInBounds(thisplayer)
-	if (self.Bounds[4]) then
-		if (thisplayer:getZ() == self.Bounds[5]) and (thisplayer:getX() > self.Bounds[1]) and (thisplayer:getX() <= self.Bounds[2]) and (thisplayer:getY() > self.Bounds[3]) and (thisplayer:getY() <= self.Bounds[4]) then
-			return true;
-		end
+function SuperSurvivorGroup:getGroupAreaCenterSquare(areaName)
+	local area = self.GroupAreas[areaName]
+	if area[1] ~= 0 then
+		return GetCenterSquareFromArea(area[1], area[2], area[3], area[4], area[5])
 	end
-	return false;
+	return nil
 end
 
-function SuperSurvivorGroup:getBaseCenter()
-	if (self.Bounds[4]) then
-		local xdiff = (self.Bounds[2] - self.Bounds[1]);
-		local ydiff = (self.Bounds[4] - self.Bounds[3]);
-		local z = 0;
-		if (self.Bounds[5]) then
-			z = self.Bounds[5];
-		end
-		local centerSquare = getCell():getGridSquare(self.Bounds[1] + (xdiff / 2), self.Bounds[3] + (ydiff / 2), z);
-
-		return centerSquare;
-	end
-	return nil;
-end
-
-function SuperSurvivorGroup:getBaseCenterCoords()
-	if (self.Bounds[4]) then
-		local xdiff = (self.Bounds[2] - self.Bounds[1]);
-		local ydiff = (self.Bounds[4] - self.Bounds[3]);
-
-		local x = self.Bounds[1] + (xdiff / 2);
-		local y = self.Bounds[3] + (ydiff / 2);
-		local z = self.Bounds[5];
-		local out = { x, y, z }
-		return out;
-	end
-	return nil;
-end
-
-function SuperSurvivorGroup:getRandomBaseSquare()
-	if (self.Bounds[4]) then
-		local xrand = ZombRand(math.floor(self.Bounds[1]), math.floor(self.Bounds[2]));
-		local yrand = ZombRand(math.floor(self.Bounds[3]), math.floor(self.Bounds[4]));
-
-		local centerSquare = getCell():getGridSquare(xrand, yrand, self.Bounds[5]);
-
-		return centerSquare;
-	end
-	return nil;
-end
-
-function SuperSurvivorGroup:WarnPlayer(ID)
-	self.YouBeenWarned[ID] = true;
-end
-
-function SuperSurvivorGroup:getWarnPlayer(ID)
-	if not self.YouBeenWarned[ID] then
-		return false;
-	end
-	return true;
-end
-
-function SuperSurvivorGroup:setLeader(newLeader)
-	if self.Leader ~= -1 then
-		local SS = SSM:Get(self.Leader);
-		-- old leader gets demoted to worker if exists
-		if (SS) then
-			SS:setGroupRole(Get_SS_UIActionText("Job_Worker"));
-		end
-	end
-	self.Leader = newLeader;
-	SSM:Get(self.Leader):setGroupRole(Get_SS_UIActionText("Job_Leader"));
-end
-
-function SuperSurvivorGroup:getLeader()
-	return self.Leader;
-end
-
-function SuperSurvivorGroup:hasLeader()
-	if self.Leader ~= -1 then
-		local SS = SSM:Get(self.Leader);
-		if (SS) and SS:getGroupRole() == Get_SS_UIActionText("Job_Leader") then
-			return true;
-		end
-	end
-	return false;
-end
-
-function SuperSurvivorGroup:getID()
-	return self.ID;
+function SuperSurvivorGroup:isGroupAreaSet(areaName)
+	return self.GroupAreas[areaName][1] ~= 0
 end
 
 function SuperSurvivorGroup:getClosestIdleMember(ofThisRole, referencePoint)
-	CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled,
-		"function: SuperSurvivorGroup:getClosestIdleMember() called"
-	);
-	local closestSoFar = 999;
-	local closestID = -1;
-	local distance = 0;
-	--
-	for i = 1, #self.Members do
-		local workingID = self.Members[i];
+    CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled, "function: getClosestIdleMember() called")
+    local closestSoFar = 999
+    local closestID = -1
 
-		if (workingID ~= nil) then
-			distance = GetDistanceBetween(SSM:Get(workingID):Get(), referencePoint);
+    for _, workingID in ipairs(self.Members) do
+        local survivor = SSM:Get(workingID)
+        if survivor then
+            local distance = GetDistanceBetween(survivor:Get(), referencePoint)
+            local isIdle = not survivor:isInAction()
+            local matchesRole = (ofThisRole == "Any" or ofThisRole == nil or survivor:getGroupRole() == ofThisRole)
 
-			if (SSM:Get(workingID):isInAction() == false)
-				and (distance ~= 0)
-				and (distance < closestSoFar)
-				and ((SSM:Get(workingID):getGroupRole() == ofThisRole)
-					or (ofThisRole == "Any")
-					or (ofThisRole == nil))
-			then
-				closestID = workingID;
-				closestSoFar = distance;
-			end
-		end
-	end
+            if isIdle and distance > 0 and distance < closestSoFar and matchesRole then
+                closestID = workingID
+                closestSoFar = distance
+            end
+        end
+    end
 
-	CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled,
-		"--- function: SuperSurvivorGroup:getClosestIdleMember() END --- "
-	);
-	if (closestID ~= -1) then
-		return SSM:Get(closestID);
-	else
-		return nil;
-	end
+    return closestID
 end
 
-function SuperSurvivorGroup:getClosestMember(ofThisRole, referencePoint)
-	CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled, "function: SuperSurvivorGroup:getClosestMember() called");
-	local closestSoFar = 999;
-	local closestID = -1;
-	local distance = 0;
-
-	for i = 1, #self.Members do
-		local workingID = self.Members[i];
-
-		if (workingID ~= nil) then
-			local workingSS = SSM:Get(workingID);
-			--
-			if (workingSS ~= nil) then
-				distance = GetDistanceBetween(workingSS:Get(), referencePoint);
-
-				if (distance ~= 0) and (distance < closestSoFar)
-					and ((ofThisRole == nil)
-						or (SSM:Get(self.Members[i]):getGroupRole() == ofThisRole)
-						or (ofThisRole == "Any"))
-				then
-					closestID = self.Members[i];
-					closestSoFar = distance;
-				end
-			end
-		end
-	end
-
-	CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled,
-		"--- function: SuperSurvivorGroup:getClosestMember() END ---"
-	);
-	if (closestID ~= -1) then
-		return SSM:Get(closestID);
-	else
-		return nil;
-	end
+function SuperSurvivorGroup:addMember(memberID)
+    if not self:hasMember(memberID) then
+        table.insert(self.Members, memberID)
+        local survivor = SSM:Get(memberID)
+        if survivor then
+            survivor:setGroupID(self.ID)
+            survivor:setGroupRole(Get_SS_UIActionText("Job_Worker"))
+        end
+    end
 end
 
-function SuperSurvivorGroup:getMember(ofThisRole, closest)
-	for i = 1, #self.Members do
-		local workingID = self.Members[i];
-		--
-		if ((workingID ~= nil)
-				and (SSM:Get(workingID):getGroupRole() == ofThisRole)
-				or (ofThisRole == "Any")
-				or (ofThisRole == nil)
-			)
-		then
-			return SSM:Get(workingID);
-		end
-	end
+function SuperSurvivorGroup:removeMember(memberID)
+    for index, id in ipairs(self.Members) do
+        if id == memberID then
+            table.remove(self.Members, index)
+            local survivor = SSM:Get(memberID)
+            if survivor then
+                survivor:setGroupID(-1)
+                survivor:setGroupRole(Get_SS_UIActionText("Job_None"))
+            end
+            break
+        end
+    end
+end
 
-	return nil;
+function SuperSurvivorGroup:hasMember(memberID)
+    for _, id in ipairs(self.Members) do
+        if id == memberID then return true end
+    end
+    return false
 end
 
 function SuperSurvivorGroup:getMembers()
-	local TableOut = {};
-	--
+    return self.Members
+end
+
+function SuperSurvivorGroup:clearMembers()
+    for _, id in ipairs(self.Members) do
+        local survivor = SSM:Get(id)
+        if survivor then
+            survivor:setGroupID(-1)
+            survivor:setGroupRole(Get_SS_UIActionText("Job_None"))
+        end
+    end
+    self.Members = {}
+end
+
+function SuperSurvivorGroup:countRole(role)
+    local count = 0
+    for _, id in ipairs(self.Members) do
+        local survivor = SSM:Get(id)
+        if survivor and survivor:getGroupRole() == role then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function SuperSurvivorGroup:getRandomMember()
+    if #self.Members == 0 then return nil end
+    local randomIndex = ZombRand(1, #self.Members + 1)
+    return self.Members[randomIndex]
+end
+
+function SuperSurvivorGroup:findMemberWithTag(tag)
 	for i = 1, #self.Members do
-		local workingID = self.Members[i];
-		--
-		if ((workingID ~= nil)) and (SSM:Get(workingID) ~= nil) then
-			table.insert(TableOut, SSM:Get(workingID));
-		elseif ((workingID ~= nil)) then
-			table.insert(TableOut, tonumber(workingID));
+		local member = self.Members[i]
+		if member:getCurrentTask() == tag then
+			return member
 		end
 	end
-	return TableOut;
+	return nil
 end
 
-function SuperSurvivorGroup:getMembersInRange(referencePoint, range, isListening)
-	CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled, "function: SuperSurvivorGroup:getMembersInRange() called");
-	local TableOut = {};
-	--
+function SuperSurvivorGroup:findMemberWithTask(taskName)
 	for i = 1, #self.Members do
-		local workingID = self.Members[i];
-
-		if ((workingID ~= nil)) and (SSM:Get(workingID) ~= nil) then
-			local distance = GetDistanceBetween(SSM:Get(workingID):Get(), referencePoint);
-
-			if (distance <= range)
-				and ((not isListening)
-					or (SSM:Get(workingID):getCurrentTask() == "Listen")
-				)
-			then
-				table.insert(TableOut, SSM:Get(workingID));
-			end
+		local member = self.Members[i]
+		if member:getCurrentTask() == taskName then
+			return member
 		end
 	end
-
-	CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled,
-		"--- function: SuperSurvivorGroup:getMembersInRange() END ---"
-	);
-	return TableOut;
+	return nil
 end
 
-function SuperSurvivorGroup:AllSpokeTo()
-	local members = self:getMembers();
-	--
-	for x = 1, #members do
-		--
-		for y = 1, #members do
-			members[x]:SpokeTo(members[y]:getID());
-		end
-	end
+function SuperSurvivorGroup:findRandomMember()
+	if #self.Members == 0 then return nil end
+	return self.Members[ZombRand(1, #self.Members + 1)]
 end
 
-function SuperSurvivorGroup:getIdleMember(ofThisRole, closest)
-	for i = 1, #self.Members do
-		local workingID = self.Members[i];
-		--
-		if (workingID ~= nil)
-			and (SSM:Get(workingID):isInAction() == false)
-			and ((SSM:Get(workingID):getGroupRole() == ofThisRole)
-				or (ofThisRole == "Any") or (ofThisRole == nil))
-		then
-			return SSM:Get(workingID);
-		end
-	end
-
-	return nil;
-end
-
-function SuperSurvivorGroup:getMembersThisCloseCount(range, referencePoint)
-	CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled,
-		"function: SuperSurvivorGroup:getMembersThisCloseCount() called"
-	);
-	local count = 0;
+function SuperSurvivorGroup:findClosestMemberToPlayer()
+	local closestMember = nil
+	local closestDistance = math.huge
+	local player = getSpecificPlayer(self.playerID)
+	if not player then return nil end
 
 	for i = 1, #self.Members do
-		local workingID = self.Members[i];
-
-		if (workingID ~= nil) and (SSM:Get(workingID)) then
-			local distance = GetDistanceBetween(referencePoint, SSM:Get(workingID):Get());
-
-			if (distance <= range) then
-				count = count + 1;
+		local member = self.Members[i]
+		if member:IsInAction() == false then
+			local dist = getDistanceBetween(member:Get(), player)
+			if dist < closestDistance then
+				closestDistance = dist
+				closestMember = member
 			end
 		end
 	end
-	CreateLogLine("SuperSurvivorGroup", isLocalLoggingEnabled,
-		"--- function: SuperSurvivorGroup:getMembersThisCloseCount() end ---"
-	);
-	return count;
+
+	return closestMember
 end
 
-function SuperSurvivorGroup:PVPAlert(attacker)
-	local count = 0;
-	--
+function SuperSurvivorGroup:setLeader(newLeader)
+	if not newLeader then return end
+	self.Leader = newLeader
+end
+
+function SuperSurvivorGroup:getLeader()
+	return self.Leader
+end
+
+function SuperSurvivorGroup:hasLeader()
+	return self.Leader ~= nil
+end
+
+function SuperSurvivorGroup:setGroupRole(member, role)
+	if not member or not role then return end
+	member:setGroupRole(role)
+end
+
+function SuperSurvivorGroup:getGroupRoleCount(role)
+	local count = 0
 	for i = 1, #self.Members do
-		local workingID = self.Members[i];
-		local ss = SSM:Get(workingID);
-		--
-		if (ss) then
-			local member = SSM:Get(workingID):Get();
-			--
-			if (workingID ~= nil) and (member) and (member:CanSee(attacker)) then
-				member:getModData().hitByCharacter = true;
-			end
+		if self.Members[i]:getGroupRole() == role then
+			count = count + 1
 		end
 	end
-	return count;
+	return count
 end
 
-function SuperSurvivorGroup:getMemberCount()
-	return #self.Members;
-end
-
-function SuperSurvivorGroup:isMember(survivor)
-	return CheckIfTableHasValue(self.Members, survivor:getID());
-end
-
--- Cows: WHAT ARE THE VALID ROLES? THERE ARE NO DOCUMENTATIONS!
-function SuperSurvivorGroup:addMember(newSurvivor, Role)
-	if (newSurvivor == nil) or (newSurvivor:getID() == nil) then
-		return false;
-	end
-
-	local currentGroup = newSurvivor:getGroup();
-	--
-	if (currentGroup) then
-		currentGroup:removeMember(newSurvivor:getID());
-	end
-
-	--if(newSurvivor:getGroupID() == self.ID) then return false end
-	if (Role == nil) then
-		Role = "Worker";
-	end
-
-	if (newSurvivor ~= nil) and (not CheckIfTableHasValue(self.Members, newSurvivor:getID())) then
-		table.insert(self.Members, newSurvivor:getID());
-
-		newSurvivor:setGroupRole(Role);
-		newSurvivor:setGroupID(self.ID);
-
-		if (Role == Get_SS_UIActionText("Job_Leader")) then
-			self:setLeader(newSurvivor:getID());
-		end
-		return self.Members[#self.Members];
-	elseif (newSurvivor ~= nil) then
-		newSurvivor:setGroupID(self.ID);
-		return nil;
-	end
-end
-
-function SuperSurvivorGroup:checkMember(newSurvivorID)
-	if (newSurvivorID ~= nil) and (not CheckIfTableHasValue(self.Members, newSurvivorID)) then
-		table.insert(self.Members, newSurvivorID);
-	end
-end
-
-function SuperSurvivorGroup:removeMember(ID)
-	local member = SSM:Get(ID);
-	if (member) then
-		member:setGroupID(nil);
-	end
-
-	if (CheckIfTableHasValue(self.Members, ID)) then
-		--#region
-		for i = 1, #self.Members do
-			--
-			if (ID == self.Members[i]) then
-				table.remove(self.Members, i);
-			end
-		end
-	end
-end
-
-function SuperSurvivorGroup:stealingDetected(thief)
+function SuperSurvivorGroup:getMemberWithRole(role)
 	for i = 1, #self.Members do
-		local workingID = self.Members[i];
-		local workingSS = SSM:Get(workingID);
-		--
-		if (workingID ~= nil) and (thief ~= nil)
-			and (thief:getModData().ID ~= nil)
-			and (workingSS ~= nil)
-			and (workingSS:getGroupID() == self.ID)
-		then
-			--
-			if (self:getWarnPlayer(thief:getModData().ID)) and SSM:Get(workingID):Get():CanSee(thief) then
-				SSM:Get(workingID):Speak(Get_SS_Dialogue("IAttackFoodThief"));
-				thief:getModData().semiHostile = true;
-				SSM:Get(workingID):Get():getModData().hitByCharacter = true;
-			elseif (not self:getWarnPlayer(thief:getModData().ID)) and SSM:Get(workingID):Get():CanSee(thief) then
-				SSM:Get(workingID):Speak(Get_SS_Dialogue("IWarnFoodThief"));
-				self:WarnPlayer(thief:getModData().ID);
-			end
+		if self.Members[i]:getGroupRole() == role then
+			return self.Members[i]
+		end
+	end
+	return nil
+end
+
+function SuperSurvivorGroup:hasMemberWithRole(role)
+	return self:getMemberWithRole(role) ~= nil
+end
+
+function SuperSurvivorGroup:setGroupID(id)
+	self.GroupID = id
+end
+
+function SuperSurvivorGroup:getGroupID()
+	return self.GroupID
+end
+
+function SuperSurvivorGroup:setGroupName(name)
+	self.GroupName = name
+end
+
+function SuperSurvivorGroup:getGroupName()
+	return self.GroupName
+end
+
+function SuperSurvivorGroup:addEnemy(enemy)
+	if not enemy or self:IsMember(enemy) then return false end
+
+	local enemyID = enemy:getID()
+	if not self.Enemies[enemyID] then
+		self.Enemies[enemyID] = enemy
+		return true
+	end
+	return false
+end
+
+function SuperSurvivorGroup:removeEnemy(enemy)
+	if not enemy then return false end
+	local enemyID = enemy:getID()
+	if self.Enemies[enemyID] then
+		self.Enemies[enemyID] = nil
+		return true
+	end
+	return false
+end
+
+function SuperSurvivorGroup:getEnemies()
+	return self.Enemies
+end
+
+function SuperSurvivorGroup:clearEnemies()
+	self.Enemies = {}
+end
+
+function SuperSurvivorGroup:hasEnemy(enemy)
+	if not enemy then return false end
+	local enemyID = enemy:getID()
+	return self.Enemies[enemyID] ~= nil
+end
+
+function SuperSurvivorGroup:getClosestEnemyToMember(member)
+	if not member then return nil end
+
+	local closestEnemy = nil
+	local closestDist = math.huge
+	for _, enemy in pairs(self.Enemies) do
+		local dist = getDistanceBetween(member:Get(), enemy)
+		if dist < closestDist then
+			closestDist = dist
+			closestEnemy = enemy
+		end
+	end
+
+	return closestEnemy
+end
+
+function SuperSurvivorGroup:addDangerArea(square, threatLevel)
+	if not square then return end
+	local key = square:getX() .. "," .. square:getY() .. "," .. square:getZ()
+	self.DangerZones[key] = {
+		square = square,
+		level = threatLevel or 1,
+		timestamp = getTimestamp()
+	}
+end
+
+function SuperSurvivorGroup:getDangerAtSquare(square)
+	if not square then return 0 end
+	local key = square:getX() .. "," .. square:getY() .. "," .. square:getZ()
+	local danger = self.DangerZones[key]
+	if danger then return danger.level or 1 else return 0 end
+end
+
+function SuperSurvivorGroup:clearDangerZones()
+	self.DangerZones = {}
+end
+
+function SuperSurvivorGroup:addLootingZone(name, zoneData)
+	if not name or not zoneData then return end
+	self.LootingZones[name] = zoneData
+end
+
+function SuperSurvivorGroup:getLootingZone(name)
+	return self.LootingZones[name]
+end
+
+function SuperSurvivorGroup:removeLootingZone(name)
+	self.LootingZones[name] = nil
+end
+
+function SuperSurvivorGroup:getAllLootingZones()
+	return self.LootingZones
+end
+
+function SuperSurvivorGroup:clearLootingZones()
+	self.LootingZones = {}
+end
+
+function SuperSurvivorGroup:setGroupTarget(square)
+	if not square then return end
+	self.TargetSquare = square
+end
+
+function SuperSurvivorGroup:getGroupTarget()
+	return self.TargetSquare
+end
+
+function SuperSurvivorGroup:clearGroupTarget()
+	self.TargetSquare = nil
+end
+
+function SuperSurvivorGroup:setGroupTargetBuilding(building)
+	if building then
+		self.TargetBuilding = building
+	end
+end
+
+function SuperSurvivorGroup:getGroupTargetBuilding()
+	return self.TargetBuilding
+end
+
+function SuperSurvivorGroup:clearGroupTargetBuilding()
+	self.TargetBuilding = nil
+end
+
+function SuperSurvivorGroup:setGroupTargetRoom(room)
+	if room then
+		self.TargetRoom = room
+	end
+end
+
+function SuperSurvivorGroup:getGroupTargetRoom()
+	return self.TargetRoom
+end
+
+function SuperSurvivorGroup:clearGroupTargetRoom()
+	self.TargetRoom = nil
+end
+
+function SuperSurvivorGroup:setLeaderTargetSquare(square)
+	if not square then return end
+	local leader = self:getLeader()
+	if leader then
+		leader:SetAIMode("Goto")
+		leader.TargetSquare = square
+	end
+end
+
+function SuperSurvivorGroup:leaderHasTarget()
+	local leader = self:getLeader()
+	return leader and leader.TargetSquare ~= nil
+end
+
+function SuperSurvivorGroup:setLeaderAIMode(mode)
+	local leader = self:getLeader()
+	if leader and mode then
+		leader:SetAIMode(mode)
+	end
+end
+
+function SuperSurvivorGroup:getFollowers()
+	local followers = {}
+	for id, member in pairs(self.Members) do
+		if not member:IsLeader() then
+			table.insert(followers, member)
+		end
+	end
+	return followers
+end
+
+function SuperSurvivorGroup:sendFollowersToSquare(square)
+	if not square then return end
+	for _, follower in pairs(self:getFollowers()) do
+		follower:SetAIMode("Goto")
+		follower.TargetSquare = square
+	end
+end
+
+function SuperSurvivorGroup:sendFollowersToBuilding(building)
+	if not building then return end
+	for _, follower in pairs(self:getFollowers()) do
+		follower:MarkBuildingExplored(building, false)
+		follower:GoToBuilding(building)
+	end
+end
+
+function SuperSurvivorGroup:sendFollowersToRoom(room)
+	if not room then return end
+	for _, follower in pairs(self:getFollowers()) do
+		follower:GoToRoom(room)
+	end
+end
+
+-- ========== Group Memory and Known Buildings ==========
+
+function SuperSurvivorGroup:addKnownBuilding(building)
+	if not building or not building:getID() then return end
+	local id = building:getID()
+	self.KnownBuildings = self.KnownBuildings or {}
+	self.KnownBuildings[id] = building
+end
+
+function SuperSurvivorGroup:hasSeenBuilding(building)
+	if not building or not building:getID() then return false end
+	return self.KnownBuildings and self.KnownBuildings[building:getID()] ~= nil
+end
+
+function SuperSurvivorGroup:getKnownBuildings()
+	return self.KnownBuildings or {}
+end
+
+function SuperSurvivorGroup:clearKnownBuildings()
+	self.KnownBuildings = {}
+end
+
+-- ========== Area Safety and Visited Tracking ==========
+
+function SuperSurvivorGroup:setAreaSafe(square)
+	if not square then return end
+	local key = tostring(square:getX()) .. "_" .. tostring(square:getY())
+	self.SafeAreas = self.SafeAreas or {}
+	self.SafeAreas[key] = true
+end
+
+function SuperSurvivorGroup:isAreaSafe(square)
+	if not square then return false end
+	local key = tostring(square:getX()) .. "_" .. tostring(square:getY())
+	return self.SafeAreas and self.SafeAreas[key] == true
+end
+
+function SuperSurvivorGroup:setRoomVisited(roomDef)
+	if not roomDef then return end
+	local key = roomDef:getName() .. "_" .. roomDef:getBuilding():getID()
+	self.VisitedRooms = self.VisitedRooms or {}
+	self.VisitedRooms[key] = true
+end
+
+function SuperSurvivorGroup:hasVisitedRoom(roomDef)
+	if not roomDef then return false end
+	local key = roomDef:getName() .. "_" .. roomDef:getBuilding():getID()
+	return self.VisitedRooms and self.VisitedRooms[key] == true
+end
+
+-- ========== Shared Group Tasks ==========
+
+function SuperSurvivorGroup:broadcastTask(taskName, taskData)
+	for _, member in pairs(self.Members) do
+		if member and member:IsInGroup() then
+			member:AssignSharedTask(taskName, taskData)
 		end
 	end
 end
 
-function SuperSurvivorGroup:getTaskCount(task)
-	local count = 0;
-	--
-	for i = 1, #self.Members do
-		local SS = SSM:Get(self.Members[i]);
-		--
-		if (SS ~= nil and SS:getCurrentTask() == task) then
-			count = count + 1;
+function SuperSurvivorGroup:cancelAllTasks()
+	for _, member in pairs(self.Members) do
+		if member and member:IsInGroup() then
+			member:ClearTaskQueue()
 		end
 	end
-
-	return count;
 end
 
-function SuperSurvivorGroup:Save()
-	local tabletoSave = {};
-	tabletoSave[1] = #self.Members;
-	tabletoSave[2] = self.Leader;
-	table.save(tabletoSave, "SurvivorGroup" .. tostring(self.ID) .. "metaData");
-	table.save(self.Members, "SurvivorGroup" .. tostring(self.ID));
-	table.save(self.Bounds, "SurvivorGroup" .. tostring(self.ID) .. "Bounds");
-
-	tabletoSave = {};
-	table.sort(self.GroupAreas);
-
-	for k, v in pairs(self.GroupAreas) do
-		local area = self.GroupAreas[k];
-
-		for i = 1, #area do
-			table.insert(tabletoSave, area[i]);
+function SuperSurvivorGroup:everyoneGoTo(square)
+	if not square then return end
+	for _, member in pairs(self.Members) do
+		if member and member:IsInGroup() then
+			member:SetAIMode("Goto")
+			member.TargetSquare = square
 		end
 	end
-
-	table.save(tabletoSave, "SurvivorGroup" .. tostring(self.ID) .. "Areas");
 end
 
-function SuperSurvivorGroup:Load()
-	local tabletoSave = table.load("SurvivorGroup" .. tostring(self.ID) .. "metaData");
-	--
-	if (tabletoSave) then
-		local temp = tonumber(tabletoSave[1]);
-		self.Leader = tonumber(tabletoSave[2]);
+-- ========== Raider and Hostile Group Handling ==========
+
+function SuperSurvivorGroup:isHostileTo(otherGroup)
+	if not otherGroup or not otherGroup.GroupID then return false end
+	return self.Enemies and self.Enemies[otherGroup.GroupID] == true
+end
+
+function SuperSurvivorGroup:addEnemyGroup(otherGroup)
+	if not otherGroup or not otherGroup.GroupID then return end
+	self.Enemies = self.Enemies or {}
+	self.Enemies[otherGroup.GroupID] = true
+end
+
+function SuperSurvivorGroup:removeEnemyGroup(otherGroup)
+	if not otherGroup or not otherGroup.GroupID then return end
+	if self.Enemies then
+		self.Enemies[otherGroup.GroupID] = nil
+	end
+end
+
+function SuperSurvivorGroup:getEnemyGroups()
+	return self.Enemies or {}
+end
+
+-- ========== Leadership and Authority ==========
+
+function SuperSurvivorGroup:setLeader(survivor)
+	if not survivor then return end
+	self.Leader = survivor
+	survivor:setAsGroupLeader(true)
+end
+
+function SuperSurvivorGroup:getLeader()
+	return self.Leader
+end
+
+function SuperSurvivorGroup:isLeader(survivor)
+	return self.Leader == survivor
+end
+
+function SuperSurvivorGroup:getLeaderName()
+	if self.Leader then
+		return self.Leader:getName()
+	end
+	return "Unknown"
+end
+
+-- ========== Persistence (Saving / Loading) ==========
+
+function SuperSurvivorGroup:serialize()
+	local data = {
+		GroupID = self.GroupID,
+		LeaderID = self.Leader and self.Leader:getID() or nil,
+		Members = {},
+		KnownBuildings = {},
+		Enemies = self.Enemies or {},
+	}
+
+	for id, member in pairs(self.Members) do
+		table.insert(data.Members, id)
 	end
 
-	self.Members = table.load("SurvivorGroup" .. tostring(self.ID));
-	--
-	if self.Members then
-		for i = 1, #self.Members do
-			if (self.Members[i] ~= nil) then
-				self.Members[i] = tonumber(self.Members[i]);
-			end
+	for id, bld in pairs(self.KnownBuildings or {}) do
+		table.insert(data.KnownBuildings, id)
+	end
+
+	return data
+end
+
+function SuperSurvivorGroup:loadFromData(data)
+	if not data then return end
+
+	self.GroupID = data.GroupID
+	self.Enemies = data.Enemies or {}
+
+	for _, memberID in pairs(data.Members or {}) do
+		local member = SuperSurvivorManager:getSurvivorByID(memberID)
+		if member then
+			self:addMember(member)
 		end
-	else
-		self.Members = {};
 	end
 
-	self.Bounds = table.load("SurvivorGroup" .. tostring(self.ID) .. "Bounds");
-	--
-	if (self.Bounds) then
-		--
-		for i = 1, #self.Bounds do
-			if (self.Bounds[i] ~= nil) then
-				self.Bounds[i] = tonumber(self.Bounds[i]);
-			end
+	for _, buildingID in pairs(data.KnownBuildings or {}) do
+		local building = getBuildingByID(buildingID)
+		if building then
+			self:addKnownBuilding(building)
 		end
-	else
-		self.Bounds = { 0, 0, 0, 0, 0 };
 	end
 
-	local AreasTable = table.load("SurvivorGroup" .. tostring(self.ID) .. "Areas");
-
-	if (AreasTable) then
-		table.sort(self.GroupAreas);
-		local gcount = 1;
-		--
-		for k, v in pairs(self.GroupAreas) do
-			if not AreasTable[gcount] then
-				break;
-			end
-			--
-			for i = 1, 5 do
-				self.GroupAreas[k][i] = tonumber(AreasTable[gcount]);
-				gcount = gcount + 1;
-			end
+	if data.LeaderID then
+		local leader = SuperSurvivorManager:getSurvivorByID(data.LeaderID)
+		if leader then
+			self:setLeader(leader)
 		end
 	end
 end
