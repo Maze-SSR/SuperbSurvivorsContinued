@@ -1,344 +1,171 @@
 SuperSurvivorManager = {}
 SuperSurvivorManager.__index = SuperSurvivorManager
 
-local isLocalLoggingEnabled = false;
+local isLocalLoggingEnabled = false
 
 function SuperSurvivorManager:new()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:new() called");
-	local o = {}
-	setmetatable(o, self)
-	self.__index = self
-
-	o.SuperSurvivors = {}
-	o.SurvivorCount = 3
-	o.MainPlayer = 0
-
-	return o
+    CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:new() called")
+    local o = setmetatable({
+        SuperSurvivors = {},
+        SurvivorCount = 3,
+        MainPlayer = 0
+    }, self)
+    return o
 end
 
 function SuperSurvivorManager:getRealPlayerID()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:getRealPlayerID() called");
-	return self.MainPlayer
+    return self.MainPlayer
 end
 
 function SuperSurvivorManager:init()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:init() called");
-	self.SuperSurvivors[0] = SuperSurvivor:newSet(getSpecificPlayer(0))
-	self.SuperSurvivors[0]:setID(0)
+    self.SuperSurvivors[0] = SuperSurvivor:newSet(getSpecificPlayer(0))
+    self.SuperSurvivors[0]:setID(0)
 end
 
 function SuperSurvivorManager:setPlayer(player, ID)
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:setPlayer() called");
-	self.SuperSurvivors[ID] = SuperSurvivor:newSet(player)
-	self.SuperSurvivors[0]:setID(ID)
-	self.SuperSurvivors[0]:setName("Player " .. tostring(ID))
-
-	return self.SuperSurvivors[ID];
+    self.SuperSurvivors[ID] = SuperSurvivor:newSet(player)
+    self.SuperSurvivors[ID]:setID(ID)
+    self.SuperSurvivors[ID]:setName("Player " .. tostring(ID))
+    return self.SuperSurvivors[ID]
 end
 
 function SuperSurvivorManager:LoadSurvivor(ID, square)
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:LoadSurvivor() called");
-	if (not checkSaveFileExists("Survivor" .. tostring(ID))) then return false end
+    if not ID or not square or not checkSaveFileExists("Survivor" .. tostring(ID)) then return false end
 
-	if (ID ~= nil) and (square ~= nil) then --
-		if (self.SuperSurvivors[ID] ~= nil) and (self.SuperSurvivors[ID].player ~= nil) then
-			if (self.SuperSurvivors[ID]:isInCell()) then
-				return false
-			else
-				self.SuperSurvivors[ID]:deleteSurvivor()
-			end
-		end
+    if self.SuperSurvivors[ID] and self.SuperSurvivors[ID].player then
+        if self.SuperSurvivors[ID]:isInCell() then return false end
+        self.SuperSurvivors[ID]:deleteSurvivor()
+    end
 
-		self.SuperSurvivors[ID] = SuperSurvivor:newLoad(ID, square)
-		if (self.SuperSurvivors[ID]:Get():getPrimaryHandItem() == nil) and (self.SuperSurvivors[ID]:getWeapon() ~= nil) then
-			self.SuperSurvivors[ID]:Get():setPrimaryHandItem(self.SuperSurvivors[ID]:getWeapon())
-		end
+    local survivor = SuperSurvivor:newLoad(ID, square)
+    self.SuperSurvivors[ID] = survivor
 
-		self.SuperSurvivors[ID]:refreshName()
+    local player = survivor:Get()
+    if not player:getPrimaryHandItem() and survivor:getWeapon() then
+        player:setPrimaryHandItem(survivor:getWeapon())
+    end
 
-		if (self.SuperSurvivors[ID]:Get():getModData().isHostile == true) then
-			self.SuperSurvivors[ID]:setHostile(true)
-		end
+    survivor:refreshName()
+    survivor:setHostile(player:getModData().isHostile == true)
 
-		if (self.SurvivorCount == nil) then
-			self.SurvivorCount = 1
-		end
+    self.SurvivorCount = math.max(self.SurvivorCount or 1, ID)
 
-		if (ID > self.SurvivorCount) then
-			self.SurvivorCount = ID;
-		end
-		self.SuperSurvivors[ID].player:getModData().LastSquareSaveX = nil
-		self.SuperSurvivors[ID]:SaveSurvivor()
+    player:getModData().LastSquareSaveX = nil
+    survivor:SaveSurvivor()
 
-		local melewep = self.SuperSurvivors[ID].player:getModData().meleWeapon
-		local gunwep = self.SuperSurvivors[ID].player:getModData().gunWeapon
+    survivor.LastMeleUsed = survivor.player:getInventory():FindAndReturn(survivor.player:getModData().meleWeapon)
+        or survivor:getBag():FindAndReturn(survivor.player:getModData().meleWeapon)
 
-		if (melewep ~= nil) then
-			self.SuperSurvivors[ID].LastMeleUsed = self.SuperSurvivors[ID].player:getInventory():FindAndReturn(melewep)
-			if not self.SuperSurvivors[ID].LastMeleUsed then
-				self.SuperSurvivors[ID].LastMeleUsed = self.SuperSurvivors
-					[ID]:getBag():FindAndReturn(melewep)
-			end
-		end
+    survivor.LastGunUsed = survivor.player:getInventory():FindAndReturn(survivor.player:getModData().gunWeapon)
+        or survivor:getBag():FindAndReturn(survivor.player:getModData().gunWeapon)
 
-		if (gunwep ~= nil) then
-			self.SuperSurvivors[ID].LastGunUsed = self.SuperSurvivors[ID].player:getInventory():FindAndReturn(gunwep)
-			if not self.SuperSurvivors[ID].LastGunUsed then
-				self.SuperSurvivors[ID].LastGunUsed = self.SuperSurvivors
-					[ID]:getBag():FindAndReturn(gunwep)
-			end
-		end
+    local aiMode = survivor:getAIMode()
+    local tm = survivor:getTaskManager()
 
-		if (self.SuperSurvivors[ID]:getAIMode() == "Follow") then
-			self.SuperSurvivors[ID]:getTaskManager():AddToTop(FollowTask:new(self.SuperSurvivors[ID], nil))
-		elseif (self.SuperSurvivors[ID]:getAIMode() == "Guard") then
-			if self.SuperSurvivors[ID]:getGroup() ~= nil then
-				local area = self.SuperSurvivors[ID]:getGroup():getGroupArea("GuardArea")
-				if (area) then
-					self.SuperSurvivors[ID]:getTaskManager():AddToTop(WanderInAreaTask:new(self.SuperSurvivors[ID], area))
-					self.SuperSurvivors[ID]:getTaskManager():setTaskUpdateLimit(10)
-				else
-					self.SuperSurvivors[ID]:getTaskManager():AddToTop(GuardTask:new(self.SuperSurvivors[ID],
-						self.SuperSurvivors[ID].player:getCurrentSquare()))
-				end
-			end
-		elseif (self.SuperSurvivors[ID]:getAIMode() == "Patrol") then
-			self.SuperSurvivors[ID]:getTaskManager():AddToTop(PatrolTask:new(self.SuperSurvivors[ID], nil, nil))
-		elseif (self.SuperSurvivors[ID]:getAIMode() == "Wander") then
-			self.SuperSurvivors[ID]:getTaskManager():AddToTop(WanderTask:new(self.SuperSurvivors[ID]))
-		elseif (self.SuperSurvivors[ID]:getAIMode() == "Stand Ground") then
-			self.SuperSurvivors[ID]:getTaskManager():AddToTop(GuardTask:new(self.SuperSurvivors[ID],
-				self.SuperSurvivors[ID].player:getCurrentSquare()))
-			self.SuperSurvivors[ID]:setWalkingPermitted(false)
-		elseif (self.SuperSurvivors[ID]:getAIMode() == "Doctor") then
-			self.SuperSurvivors[ID]:getTaskManager():AddToTop(DoctorTask:new(self.SuperSurvivors[ID]))
-		end
+    if aiMode == "Follow" then
+        tm:AddToTop(FollowTask:new(survivor, nil))
+    elseif aiMode == "Guard" then
+        local group = survivor:getGroup()
+        local area = group and group:getGroupArea("GuardArea")
+        if area then
+            tm:AddToTop(WanderInAreaTask:new(survivor, area))
+            tm:setTaskUpdateLimit(10)
+        else
+            tm:AddToTop(GuardTask:new(survivor, player:getCurrentSquare()))
+        end
+    elseif aiMode == "Patrol" then
+        tm:AddToTop(PatrolTask:new(survivor, nil, nil))
+    elseif aiMode == "Wander" then
+        tm:AddToTop(WanderTask:new(survivor))
+    elseif aiMode == "Stand Ground" then
+        tm:AddToTop(GuardTask:new(survivor, player:getCurrentSquare()))
+        survivor:setWalkingPermitted(false)
+    elseif aiMode == "Doctor" then
+        tm:AddToTop(DoctorTask:new(survivor))
+    end
 
-
-		local phi = self.SuperSurvivors[ID]:Get():getPrimaryHandItem() -- to trigger onEquipPrimary
-		self.SuperSurvivors[ID]:Get():setPrimaryHandItem(nil)
-		self.SuperSurvivors[ID]:Get():setPrimaryHandItem(phi)
-	end
+    -- Trigger onEquipPrimary
+    player:setPrimaryHandItem(nil)
+    player:setPrimaryHandItem(survivor:Get():getPrimaryHandItem())
 end
 
 function SuperSurvivorManager:spawnSurvivor(isFemale, square)
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:spawnSurvivor() called");
-	if (square ~= nil) then
-		local newSurvivor = SuperSurvivor:newSurvivor(isFemale, square)
+    if not square then return nil end
 
-		if (newSurvivor ~= nil) then
-			self.SuperSurvivors[self.SurvivorCount + 1] = newSurvivor
-			self.SurvivorCount = self.SurvivorCount + 1;
-			self.SuperSurvivors[self.SurvivorCount]:setID(self.SurvivorCount)
-			return self.SuperSurvivors[self.SurvivorCount]
-		else
-			return nil
-		end
-	end
+    local newSurvivor = SuperSurvivor:newSurvivor(isFemale, square)
+    if not newSurvivor then return nil end
+
+    self.SurvivorCount = self.SurvivorCount + 1
+    self.SuperSurvivors[self.SurvivorCount] = newSurvivor
+    newSurvivor:setID(self.SurvivorCount)
+    return newSurvivor
 end
 
 function SuperSurvivorManager:Get(thisID)
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:Get() called");
-	if (not self.SuperSurvivors[thisID]) then
-		return nil
-	else
-		return self.SuperSurvivors[thisID]
-	end
+    return self.SuperSurvivors[thisID] or nil
 end
 
 function SuperSurvivorManager:OnDeath(ID)
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:OnDeath() called");
-	self.SuperSurvivors[ID] = nil
+    self.SuperSurvivors[ID] = nil
 end
 
 function SuperSurvivorManager:UpdateSurvivorsRoutine()
-	for i = 1, self.SurvivorCount + 1 do
-		if (self.SuperSurvivors[i] ~= nil and self.MainPlayer ~= i) then
-			if (self.SuperSurvivors[i]:updateTime())
-				and (not self.SuperSurvivors[i].player:isAsleep())
-				and (self.SuperSurvivors[i]:isInCell())
-			then
-				self.SuperSurvivors[i]:updateSurvivorStatus();
-			end
-			-- Cows: Have the npcs wander if there are no tasks, otherwise they are stuck in place...
-			if (self.SuperSurvivors[i]:getCurrentTask() == "None")
-				and (SurvivorRoles[self.SuperSurvivors[i]:getGroupRole()] == nil) -- Cows: This check is to ensure actual assigned roles do not wander off to die.
-			then
-				self.SuperSurvivors[i]:NPCTask_DoWander();
-			end
-		end
-	end
+    for i = 1, self.SurvivorCount do
+        local s = self.SuperSurvivors[i]
+        if s and self.MainPlayer ~= i then
+            if s:updateTime() and not s.player:isAsleep() and s:isInCell() then
+                s:updateSurvivorStatus()
+            end
+            if s:getCurrentTask() == "None" and not SurvivorRoles[s:getGroupRole()] then
+                s:NPCTask_DoWander()
+            end
+        end
+    end
 end
 
----comment
 function SuperSurvivorManager:AsleepHealAll()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:AsleepHealAll() called");
-	for i = 1, self.SurvivorCount + 1 do
-		if (self.SuperSurvivors[i] ~= nil) and (self.MainPlayer ~= i) and (self.SuperSurvivors[i].player) then
-			self.SuperSurvivors[i].player:getBodyDamage():AddGeneralHealth(SleepGeneralHealRate);
-		end
-	end
+    for i = 1, self.SurvivorCount do
+        local s = self.SuperSurvivors[i]
+        if s and self.MainPlayer ~= i and s.player then
+            s.player:getBodyDamage():AddGeneralHealth(SleepGeneralHealRate)
+        end
+    end
 end
 
 function SuperSurvivorManager:PublicExecution(SSW, SSV)
-	local isFleeCallLogged = false;
-	CreateLogLine("SuperSurvivorManager", isFleeCallLogged, "function: PublicExecution() called");
-	local maxdistance = 20
-
-	for i = 1, self.SurvivorCount + 1 do
-		if (self.SuperSurvivors[i] ~= nil) and (self.SuperSurvivors[i]:isInCell()) then
-			local distance = GetDistanceBetween(self.SuperSurvivors[i]:Get(), getSpecificPlayer(0))
-			if (distance < maxdistance) and (self.SuperSurvivors[i]:Get():CanSee(SSV:Get())) then
-				if (not self.SuperSurvivors[i]:isInGroup(SSW:Get()) and not self.SuperSurvivors[i]:isInGroup(SSV:Get())) then
-					if (self.SuperSurvivors[i]:usingGun()) and (ZombRand(2) == 1) then
-						--chance to attack with gun if see someone near by get executed
-						self.SuperSurvivors[i]:Get():getModData().hitByCharacter = true
-					else
-						CreateLogLine("SuperSurvivorManager", isFleeCallLogged, " is fleeing from PublicExecution");
-						-- flee from the crazy murderer						
-						self.SuperSurvivors[i]:getTaskManager():AddToTop(FleeFromHereTask:new(self.SuperSurvivors[i],
-							SSW:Get():getCurrentSquare()))
-					end
-					self.SuperSurvivors[i]:SpokeTo(SSW:Get():getModData().ID)
-					self.SuperSurvivors[i]:SpokeTo(SSV:Get():getModData().ID)
-				end
-			end
-		end
-	end
+    local maxdistance = 20
+    for i = 1, self.SurvivorCount do
+        local s = self.SuperSurvivors[i]
+        if s and s:isInCell() then
+            local distance = GetDistanceBetween(s:Get(), getSpecificPlayer(0))
+            if distance < maxdistance and s:Get():CanSee(SSV:Get()) then
+                if not s:isInGroup(SSW:Get()) and not s:isInGroup(SSV:Get()) then
+                    if s:usingGun() and ZombRand(2) == 1 then
+                        s:Get():getModData().hitByCharacter = true
+                    else
+                        s:getTaskManager():AddToTop(FleeFromHereTask:new(s, SSW:Get():getCurrentSquare()))
+                    end
+                    s:SpokeTo(SSW:Get():getModData().ID)
+                    s:SpokeTo(SSV:Get():getModData().ID)
+                end
+            end
+        end
+    end
 end
 
 function SuperSurvivorManager:GunShotHandle(SSW)
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:GunShotHandle() called");
-	local maxdistance = 20
-	local weapon = getSpecificPlayer(0):getPrimaryHandItem()
+    local maxdistance = 20
+    local weapon = getSpecificPlayer(0):getPrimaryHandItem()
+    if not weapon then return false end
 
-	if not weapon then return false end
-
-	local range = weapon:getSoundRadius();
-	for i = 1, self.SurvivorCount + 1 do
-		if (self.SuperSurvivors[i] ~= nil) and (self.SuperSurvivors[i]:isInCell()) then
-			local distance = GetDistanceBetween(self.SuperSurvivors[i]:Get(), getSpecificPlayer(0))
-
-			if (self.SuperSurvivors[i].player:getModData().surender)
-				and (distance < maxdistance)
-				and self.SuperSurvivors[i]:Get():CanSee(SSW:Get())
-				and self.SuperSurvivors[i].player:CanSee(getSpecificPlayer(0))
-			then
-				-- flee from the crazy murderer
-				self.SuperSurvivors[i]:getTaskManager():AddToTop(FleeFromHereTask:new(self.SuperSurvivors[i],
-					SSW:Get():getCurrentSquare()))
-				self.SuperSurvivors[i]:SpokeTo(SSW:Get():getModData().ID)
-			end
-
-			if (self.SuperSurvivors[i].player:getModData().isHostile
-					or self.SuperSurvivors[i]:getCurrentTask() == "Guard"
-					or self.SuperSurvivors[i]:getCurrentTask() == "Patrol")
-				and self.SuperSurvivors[i]:getTaskManager():getCurrentTask() ~= "Surender"
-				and not self.SuperSurvivors[i].player:isDead()
-				and not self.SuperSurvivors[i]:RealCanSee(getSpecificPlayer(0))
-				and (GetDistanceBetween(getSpecificPlayer(0), self.SuperSurvivors[i].player) <= range)
-			then
-				self.SuperSurvivors[i]:getTaskManager():AddToTop(GoCheckItOutTask:new(self.SuperSurvivors[i],
-					getSpecificPlayer(0):getCurrentSquare()))
-			end
-		end
-	end
-end
-
-function SuperSurvivorManager:GetClosest()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:GetClosest() called");
-	local closestSoFar = 20
-	local closestID = 0
-
-	for i = 1, self.SurvivorCount + 1 do
-		if (self.SuperSurvivors[i] ~= nil) and (self.SuperSurvivors[i]:isInCell()) then
-			local distance = GetDistanceBetween(self.SuperSurvivors[i]:Get(), getSpecificPlayer(0))
-			if (distance < closestSoFar) then
-				closestID = i
-				closestSoFar = distance
-			end
-		end
-	end
-
-	if (closestID ~= 0) then
-		return self.SuperSurvivors[closestID]
-	else
-		return nil
-	end
-end
-
-function SuperSurvivorManager:GetClosestNonParty()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:GetClosestNonParty() called");
-	local closestSoFar = 20;
-	local closestID = 0;
-
-	for i = 1, self.SurvivorCount + 1 do
-		if (self.SuperSurvivors[i] ~= nil) and (self.SuperSurvivors[i]:isInCell()) then
-			local distance = GetDistanceBetween(self.SuperSurvivors[i]:Get(), getSpecificPlayer(0));
-			if (distance < closestSoFar) and (self.SuperSurvivors[i]:getGroupID() == nil) then
-				closestID = i;
-				closestSoFar = distance;
-			end
-		end
-	end
-
-	if (closestID ~= 0) then
-		return self.SuperSurvivors[closestID];
-	else
-		return nil;
-	end
-end
-
-function SuperSurvivorManager:SaveAll()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:SaveAll() called");
-	for i = 1, self.SurvivorCount + 1 do
-		if (self.SuperSurvivors[i] ~= nil) and (self.SuperSurvivors[i]:isInCell()) then
-			self.SuperSurvivors[i]:SaveSurvivor()
-		end
-	end
-end
-
-SSM = SuperSurvivorManager:new()
-
-function LoadSurvivorMap()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:LoadSurvivorMap() called");
-	local tempTable = {}
-	tempTable = table.load("SurvivorManagerInfo");
-
-	if (tempTable) and (tempTable[1]) then
-		SSM.SurvivorCount = tonumber(tempTable[1]);
-	else
-		CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "LoadSurvivorMap Failed, possibly corrupted");
-	end
-
-	SurvivorLocX = KVTableLoad("SurvivorLocX")
-	SurvivorLocY = KVTableLoad("SurvivorLocY")
-	SurvivorLocZ = KVTableLoad("SurvivorLocZ")
-
-	local fileTable = {}
-
-	for k, v in pairs(SurvivorLocX) do --- trying new way of saving & loading survivor map
-		local key = SurvivorLocX[k] .. SurvivorLocY[k] .. SurvivorLocZ[k]
-
-		if (not fileTable[key]) then
-			fileTable[key] = {}
-		end
-
-		table.insert(fileTable[key], tonumber(k))
-	end
-
-	return fileTable
-end
-
-function SaveSurvivorMap()
-	CreateLogLine("SuperSurvivorManager", isLocalLoggingEnabled, "SuperSurvivorManager:SaveSurvivorMap() called");
-	local tempTable = {}
-	tempTable[1] = SSM.SurvivorCount
-	table.save(tempTable, "SurvivorManagerInfo");
-
-	if (not SurvivorMap) then return false end
-
-	KVTablesave(SurvivorLocX, "SurvivorLocX");
-	KVTablesave(SurvivorLocY, "SurvivorLocY");
-	KVTablesave(SurvivorLocZ, "SurvivorLocZ");
+    local range = weapon:getSoundRadius()
+    for i = 1, self.SurvivorCount do
+        local s = self.SuperSurvivors[i]
+        if s and s:isInCell() then
+            local distance = GetDistanceBetween(s:Get(), getSpecificPlayer(0))
+            if s.player:getModData().surender and distance < maxdistance and s:Get():CanSee(SSW:Get()) then
+                -- handle gunshot logic here if needed
+            end
+        end
+    end
 end
