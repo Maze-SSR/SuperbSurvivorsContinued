@@ -2,6 +2,7 @@ GatherWoodTask = {}
 GatherWoodTask.__index = GatherWoodTask
 
 local isLocalLoggingEnabled = false;
+local ClaimedCheckHours = 0.1
 
 function GatherWoodTask:new(superSurvivor, BringHere)
 	CreateLogLine("GatherWoodTask", isLocalLoggingEnabled, "function: GatherWoodTask:new() called");
@@ -27,111 +28,119 @@ function GatherWoodTask:isComplete()
 end
 
 function GatherWoodTask:isValid()
-	if not self.parent or not self.BringHereSquare then
-		return false
-	else
-		return true
-	end
+	return self.parent and self.BringHereSquare
 end
 
--- WIP - Cows: NEED TO REWORK THE NESTED LOOP CALLS
 function GatherWoodTask:update()
 	CreateLogLine("GatherWoodTask", isLocalLoggingEnabled, "function: GatherWoodTask:update() called");
 	if (not self:isValid()) then return false end
 
-	if (self.parent:isInAction() == false) then
-		local player = self.parent.player
+	local player = self.parent.player
 
-		if ((player:getInventory():FindAndReturn("Log") ~= nil) or (player:getInventory():FindAndReturn("Plank") ~= nil)) then
-			local distanceToPoint = GetDistanceBetween(self.BringHereSquare, player)
+	if self.parent:isInAction() then return false end
 
-			if (distanceToPoint > 2.0) then
-				self.parent:walkTo(self.BringHereSquare)
-			else
-				local Wood = player:getInventory():FindAndReturn("Log")
-				if not Wood then Wood = player:getInventory():FindAndReturn("Plank") end
+	-- Deliver to storage point
+	local woodItem = player:getInventory():FindAndReturn("Plank") or player:getInventory():FindAndReturn("Log")
+	if woodItem then
+		if GetDistanceBetween(self.BringHereSquare, player) > 2 then
+			self.parent:walkTo(self.BringHereSquare)
+		else
+			self.BringHereSquare:AddWorldInventoryItem(woodItem, ZombRand(10)/100, ZombRand(10)/100, 0)
+			player:getInventory():DoRemoveItem(woodItem)
+			self.Target = nil
+		end
+		return
+	end
 
-				self.BringHereSquare:AddWorldInventoryItem(Wood, (ZombRand(10) / 100), (ZombRand(10) / 100), 0)
-				self.parent.player:getInventory():DoRemoveItem(Wood)
-				self.Target = nil
+	-- Search for nearby wood
+	if not self.Target then
+		local range = 25
+		local closest = range
+		local gamehours = getGameTime():getWorldAgeHours()
+
+		local minx = math.floor(player:getX() - range)
+		local maxx = math.floor(player:getX() + range)
+		local miny = math.floor(player:getY() - range)
+		local maxy = math.floor(player:getY() + range)
+
+		if self.group then
+			local area = self.group:getGroupArea("TakeWoodArea")
+			if area[1] ~= 0 then
+				minx, maxx = area[1], area[2]
+				miny, maxy = area[3], area[4]
 			end
-		elseif (self.Target == nil) then
-			local range = 25;
-			local Square, closestsoFarSquare;
-			local minx = math.floor(player:getX() - range);
-			local maxx = math.floor(player:getX() + range);
-			local miny = math.floor(player:getY() - range);
-			local maxy = math.floor(player:getY() + range);
+		end
 
-			if (self.group ~= nil) then
-				local area = self.group:getGroupArea("TakeWoodArea")
-				if (area[1] ~= 0) then
-					range = 100
-					minx = area[1]
-					maxx = area[2]
-					miny = area[3]
-					maxy = area[4]
-				end
-			end
+		for x = minx, maxx do
+			for y = miny, maxy do
+				local sq = getCell():getGridSquare(x, y, 0)
+				if sq and self.BringHereSquare ~= sq then
+					local objs = sq:getWorldObjects()
+					for i = 0, objs:size()-1 do
+						local obj = objs:get(i)
+						local item = obj:getItem()
+						if item and (item:getType() == "Plank" or item:getType() == "Log") then
+							local mod = obj:getModData()
+							local isUnclaimed = not mod.isClaimed or (gamehours > (mod.isClaimed + ClaimedCheckHours))
+							local dist = GetDistanceBetween(sq, player)
 
-			local closestsoFar = range;
-			local gamehours = getGameTime():getWorldAgeHours();
-
-			for x = minx, maxx do
-				for y = miny, maxy do
-					Square = getCell():getGridSquare(x, y, 0);
-
-					if (Square ~= nil)
-						and (self.BringHereSquare ~= Square)
-						and (self.WoodStorageArea ~= nil)
-						and (IsSquareInArea(Square, self.WoodStorageArea) == false)
-					then
-						local distance = GetDistanceBetween(Square, player); -- WIP - Cows: literally spammed inside the nested for loops...
-						local closeobjects = Square:getWorldObjects();
-						for i = 0, closeobjects:size() - 1 do
-							if (closeobjects:get(i):getItem()) and ((closeobjects:get(i):getItem():getType() == "Log") or (closeobjects:get(i):getItem():getType() == "Plank")) and ((closeobjects:get(i):getModData().isClaimed == nil) or (gamehours > (closeobjects:get(i):getModData().isClaimed + 0.05))) and (distance < closestsoFar) then
-								self.Target = closeobjects:get(i);
-								closestsoFar = distance;
+							if isUnclaimed and dist < closest then
+								self.Target = obj
+								closest = dist
 							end
 						end
 					end
 				end
 			end
+		end
 
-			if (self.Target ~= nil) and (self.Target:getSquare() ~= nil) then
-				player:StopAllActionQueue();
-				self.Target:getModData().isClaimed = gamehours;
-				--ISTimedActionQueue.add(ISWalkToTimedAction:new(player, self.Target:getSquare():getN()));
-				self.parent:walkTo(self.Target:getSquare());
-			else
-				self.parent:Speak(Get_SS_UIActionText("NoWoodHere"));
-				self.Complete = true
-			end
-		elseif (self.Target ~= nil) then
-			if ((self.Target ~= nil) and instanceof(self.Target, "IsoWorldInventoryObject") and (self.Target:getSquare() ~= nil) and (GetDistanceBetween(self.Target, player) > 2.0)) then
-				--ISTimedActionQueue.add(ISWalkToTimedAction:new(player, self.Target:getSquare():getN() ));
-				--self.parent:Speak("walking")
-				self.parent:walkTo(self.Target:getSquare());
-			elseif (self.Target ~= nil) and instanceof(self.Target, "IsoWorldInventoryObject") and (self.Target:getSquare() ~= nil) then
-				--self.parent:Speak("pick up")
-				self.Target = self.parent.player:getInventory():AddItem(self.Target:getItem())
-				if (self.Target:getWorldItem()) then
-					self.Target:getWorldItem():getSquare():removeWorldObject(self.Target:getWorldItem())
+		-- If nothing found on ground, try containers nearby
+		if not self.Target then
+			local spiral = SpiralSearch:new(player:getX(), player:getY(), 6)
+			for i = 0, spiral:forMax() do
+				local x, y = spiral:getX(), spiral:getY()
+				local sq = getCell():getGridSquare(x, y, 0)
+				if sq then
+					local objs = sq:getObjects()
+					for j = 0, objs:size()-1 do
+						local c = objs:get(j):getContainer()
+						if c then
+							local item = c:FindAndReturn("Plank") or c:FindAndReturn("Log")
+							if item then
+								ISTimedActionQueue.add(ISInventoryTransferAction:new(player, item, c, player:getInventory(), 30))
+								self.Target = nil
+								return
+							end
+						end
+					end
 				end
-				if (self.Target:getWorldItem()) then
-					self.Target:getWorldItem():removeFromSquare()
-				end
-
-				self.Target:setWorldItem(nil)
-				self.parent:RoleplaySpeak(Get_SS_UIActionText("TakesItemFromGround_Before") ..
-					self.Target:getDisplayName() .. Get_SS_UIActionText("TakesItemFromGround_After"))
-				self.CarryingToPoint = true
-			else
-				self.Target = nil
+				spiral:next()
 			end
 		end
-	else
-		--self.parent:Speak("waiting for non action");
+
+		if not self.Target then
+			self.parent:Speak(Get_SS_UIActionText("NoWoodHere"))
+			self.Complete = true
+			return
+		end
 	end
+
+	-- Walk to target
+	if self.Target and GetDistanceBetween(self.Target:getSquare(), player) > 2 then
+		self.parent:walkTo(self.Target:getSquare())
+	elseif self.Target then
+		local item = self.Target:getItem()
+		player:getInventory():AddItem(item)
+		if self.Target:getWorldItem() then
+			self.Target:getWorldItem():getSquare():removeWorldObject(self.Target:getWorldItem())
+			self.Target:getWorldItem():removeFromSquare()
+		end
+		item:setWorldItem(nil)
+		self.parent:RoleplaySpeak(Get_SS_UIActionText("TakesItemFromGround_Before") ..
+			item:getDisplayName() .. Get_SS_UIActionText("TakesItemFromGround_After"))
+		self.CarryingToPoint = true
+		self.Target = nil
+	end
+
 	CreateLogLine("GatherWoodTask", isLocalLoggingEnabled, "--- function: GatherWoodTask:update() END ---");
 end
