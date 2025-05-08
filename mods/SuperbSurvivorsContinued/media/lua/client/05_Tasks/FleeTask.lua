@@ -1,44 +1,69 @@
 FleeTask = {}
 FleeTask.__index = FleeTask
 
-function FleeTask:new(superSurvivor)
-	local o = {}
-	setmetatable(o, self)
-	self.__index = self
-	superSurvivor:setRunning(true)
-	o.parent = superSurvivor
-	o.Name = "Flee"
-	o.OnGoing = false
-	if o.parent.TargetBuilding ~= nil then o.parent:MarkAttemptedBuildingExplored(o.parent.TargetBuilding) end -- otherwise he just keeps running back to the building though the threat likely lingers there
+local isLocalLoggingEnabled = false;
 
-	return o
+function FleeTask:new(superSurvivor)
+    CreateLogLine("FleeTask", isLocalLoggingEnabled, "function: FleeTask:new() called");
+    local o = {}
+    setmetatable(o, self)
+    self.__index = self
+
+    superSurvivor:setRunning(true)
+    o.parent = superSurvivor
+    o.Name = "Flee"
+    o.OnGoing = false
+
+    if o.parent.TargetBuilding ~= nil then
+        o.parent:MarkAttemptedBuildingExplored(o.parent.TargetBuilding)
+    end
+
+    return o
 end
 
 function FleeTask:isComplete()
-	if (self.parent:getDangerSeenCount() == 0) or self.parent:needToFollow() then
-		self.parent:StopWalk()
-		self.parent:setRunning(false)
-		return true
-	else
-		return false
-	end
+    if (self.parent:getDangerSeenCount() == 0) or self.parent:needToFollow() then
+        self.parent:StopWalk()
+        self.parent:setRunning(false)
+        return true
+    else
+        return false
+    end
 end
 
 function FleeTask:isValid()
-	if not self.parent or self:isComplete() or not self.parent.LastEnemeySeen then
-		return false
-	else
-		return true
-	end
+    if not self.parent or self:isComplete() then
+        return false
+    end
+    return true
 end
 
 function FleeTask:update()
-	self.parent:setRunning(true)
+    if not self:isValid() then return false end
 
-	if (not self:isValid()) then return false end
+    self.parent:setRunning(true)
+    self.parent:setSneaking(false)
 
-	if (self.parent.player and self.parent.LastEnemeySeen) then
-		self.parent:setSneaking(false);
-		self.parent:walkTo(GetFleeSquare(self.parent.player, self.parent.LastEnemeySeen, 7))
-	end
+    local player = self.parent.player
+    local threat = self.parent.LastEnemeySeen
+
+    local fleeSquare
+    if threat then
+        fleeSquare = GetFleeSquare(player, threat, 7)
+    else
+        -- fallback to fleeing from current square if threat is nil
+        fleeSquare = GetFleeSquare(player, player:getCurrentSquare(), 7)
+    end
+
+    if fleeSquare ~= nil then
+        self.parent:walkTo(fleeSquare)
+        self.parent:NPC_EnforceWalkNearMainPlayer()
+    else
+        CreateLogLine("FleeTask", isLocalLoggingEnabled, "No flee square found. Resetting survivor.")
+        self.parent:StopWalk()
+        self.parent:setRunning(false)
+        self.parent:getTaskManager():clear()
+        self.parent:getTaskManager():AddToTop(FollowTask:new(self.parent, getSpecificPlayer(0))) -- fallback: follow player
+        return false
+    end
 end
