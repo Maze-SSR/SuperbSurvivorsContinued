@@ -3,213 +3,175 @@ LMSConditions.MoodleTable = {}
 LMSConditions.LowerMoodleTable = {}
 LMSConditions.TimeOfRegister = nil
 
-LMSConditions.SlightlyBored = {
-	"",
-	""
-}
-LMSConditions.Bored = {
-	"",
-	"",
-	"",
-	""
-}
-LMSConditions.VeryBored = {
-	"",
-	"",
-	"",
-	""
-}
-LMSConditions.ExtremelyBored = {
-	"",
-	"",
-	"",
-	""
-}
-LMSConditions.SlightlyStressed = {
-	""
-}
-LMSConditions.Stressed = {
-	""
-}
-LMSConditions.VeryStressed = {
-	""
-}
-LMSConditions.ExtremelyStressed = {
-	""
-}
-LMSConditions.SlightlyPanicked = SurvivorSpeechTable["Panic"]
-LMSConditions.Panicked = SurvivorSpeechTable["Scared"]
-LMSConditions.VeryPanicked = SurvivorSpeechTable["Scared"]
-LMSConditions.ExtremelyPanicked = SurvivorSpeechTable["Scream"]
-LMSConditions.Zombie = {
-	"",
-	""
-}
-LMSConditions.SlightlyPainful = SurvivorSpeechTable["Hurt"]
-LMSConditions.Painful = SurvivorSpeechTable["Injured"]
-LMSConditions.VeryPainful = SurvivorSpeechTable["Injured"]
-LMSConditions.ExtremelyPainful = SurvivorSpeechTable["BadInjured"]
+-- 🧠 In-game dialogue tables for boredom, stress, pain, etc.
+LMSConditions.SlightlyBored = { "", "" }
+LMSConditions.Bored = { "", "", "", "" }
+LMSConditions.VeryBored = { "", "", "", "" }
+LMSConditions.ExtremelyBored = { "", "", "", "" }
+LMSConditions.SlightlyStressed = { "" }
+LMSConditions.Stressed = { "" }
+LMSConditions.VeryStressed = { "" }
+LMSConditions.ExtremelyStressed = { "" }
+LMSConditions.Zombie = { "", "" }
+
+-- 💬 Pulls from shared SurvivorSpeechTable (assumed global)
+LMSConditions.SlightlyPanicked = SurvivorSpeechTable and SurvivorSpeechTable["Panic"] or {}
+LMSConditions.Panicked = SurvivorSpeechTable and SurvivorSpeechTable["Scared"] or {}
+LMSConditions.VeryPanicked = SurvivorSpeechTable and SurvivorSpeechTable["Scared"] or {}
+LMSConditions.ExtremelyPanicked = SurvivorSpeechTable and SurvivorSpeechTable["Scream"] or {}
+LMSConditions.SlightlyPainful = SurvivorSpeechTable and SurvivorSpeechTable["Hurt"] or {}
+LMSConditions.Painful = SurvivorSpeechTable and SurvivorSpeechTable["Injured"] or {}
+LMSConditions.VeryPainful = SurvivorSpeechTable and SurvivorSpeechTable["Injured"] or {}
+LMSConditions.ExtremelyPainful = SurvivorSpeechTable and SurvivorSpeechTable["BadInjured"] or {}
+
+-- Campfire dialogue for immersion
 LMSConditions.Campfire = {
-	"*sings* Irene goodnight, Irene goodnight. Goodnight, Irene, goodnight, Irene, I'll see you in my dreams...",
-	"*sings* Val-der-ri, val-der-ra Val-der-ra, val-der-ha ha ha ha ha ha Val-der-ri, val-der-ra...",
-	"*sings* One bright day in the middle of the night, Two dead boys got up to fight, Back to back the faced each other",
-	"Drew their swords and shot each other. A deaf police man heard the noise, So he came and shot those two dead boys.",
-	"If you don\'t believe this lie is true, Ask the blind man he saw too.",
-	"*sings* Swing low, sweet chariot, Comin' for to carry me home; Swing low, sweet chariot, Comin' for to carry me home."
+	"*sings* Irene goodnight, Irene goodnight...",
+	"*sings* Val-der-ri, val-der-ra...",
+	"*sings* One bright day in the middle of the night...",
+	"Drew their swords and shot each other...",
+	"If you don’t believe this lie is true, Ask the blind man he saw too.",
+	"*sings* Swing low, sweet chariot..."
 }
+
+-- All moodle keys supported
 LMSConditions.LMSMoodles = {
-	"Endurance",
-	"Tired",
-	"Hungry",
-	"Panic",
-	"Sick",
-	"Bored",
-	"Unhappy",
-	"Bleeding",
-	"Wet",
-	"HasACold",
-	"Angry",
-	"Stress",
-	"Thirst",
-	"Injured",
-	"Pain",
-	"HeavyLoad",
-	"Drunk",
-	"Zombie",
-	"Hyperthermia",
-	"Hypothermia",
-	"FoodEaten"
+	"Endurance", "Tired", "Hungry", "Panic", "Sick", "Bored",
+	"Unhappy", "Bleeding", "Wet", "HasACold", "Angry", "Stress",
+	"Thirst", "Injured", "Pain", "HeavyLoad", "Drunk", "Zombie",
+	"Hyperthermia", "Hypothermia", "FoodEaten"
 }
 
-function LMSConditions.checkIfLoaded()                       -- prevent player from re-saying a condition
-	getPlayer():getMoodles():Update()                        -- makes sure that the Moodles system is properly loaded
-	LMSConditions.retrieveMoodles()                          -- retrieves moodles
-	Events.OnPlayerUpdate.Add(LMSConditions.checkForConditions) -- preps conditions checker
+-- 🧠 Utility wrapper for SP player (TODO: MP player support)
+local function getPlayer()
+	return getSpecificPlayer(0)
 end
 
+-- 🛑 B42 fix: Replace unsafe loadstring with direct assignment
 function LMSConditions.retrieveMoodles()
+	local player = getPlayer()
+	if not player then return end
+
 	for i = 1, #LMSConditions.LMSMoodles do
-		loadstring("LMSConditions.MoodleTable[" ..
-		i .. "] = getPlayer():getMoodles():getMoodleLevel(MoodleType." .. LMSConditions.LMSMoodles[i] .. ")")()                              -- uses loadstring to have MoodleType call the table with the same name as LMSMoodles.
+		local moodleName = LMSConditions.LMSMoodles[i]
+		if MoodleType[moodleName] then
+			LMSConditions.MoodleTable[i] = player:getMoodles():getMoodleLevel(MoodleType[moodleName])
+		end
 	end
 end
 
+-- Called once at load
+function LMSConditions.checkIfLoaded()
+	local player = getPlayer()
+	if not player then return end
+	player:getMoodles():Update()
+	LMSConditions.retrieveMoodles()
+	Events.OnPlayerUpdate.Add(LMSConditions.checkForConditions)
+end
+
+-- Triggered on empty gun, etc.
 function LMSConditions.checkIfAttacking(player, item)
-	if player:isLocalPlayer() == false then
-		if player:getPrimaryHandItem() ~= nil then                        -- has to do multiple, separate checks to prevent erroring if the hand weapon isn't a gun
-			if player:getPrimaryHandItem():isRanged() then
-				if player:getPrimaryHandItem():getModData().currentCapacity == 0 then -- checks for empty gun
-					LMSConditions.generateRandomNumber(player, SurvivorSpeechTable["OutOfAmmo"])
-				end
-			end
-		end
+	if not player or player:isLocalPlayer() then return end
+	local weapon = player:getPrimaryHandItem()
+	if weapon and weapon:isRanged() and weapon:getModData().currentCapacity == 0 then
+		LMSConditions.generateRandomNumber(player, SurvivorSpeechTable["OutOfAmmo"])
 	end
 end
 
+-- Picks and triggers a line of speech
 function LMSConditions.generateRandomNumber(player, conditionTable, optionalNumber)
-	if (conditionTable == nil) then return false end
-	local randNumber = ZombRand(#conditionTable) + 1 -- enumerates given table
-	local name = ""
-	if (player:getModData().Name) then name = player:getModData().Name end
-	local ID = player:getModData().ID;
+	if not conditionTable then return end
+	local randIndex = ZombRand(#conditionTable) + 1
+	local name = player:getModData().Name or ""
+	local ID = player:getModData().ID
 	local SS = SSM:Get(ID)
-	--player:Say(name..": "..conditionTable[randNumber])
-	SS:Speak(conditionTable[randNumber])
+	if SS then
+		SS:Speak(conditionTable[randIndex])
+	end
 end
 
-Speech = {};
-SpeechLevel = {};
+-- Stores spoken levels to avoid repeating moodle chatter
+Speech = {}
+SpeechLevel = {}
 
-function LMSConditions.doMoodleCheck(player, LMSMoodleLevel, LMSMoodleType, conditionTable, indexNumber, isDoSecondMoodle,
-									 optionalMoodleLevel, optionalMoodleType, optionalIndexNumber)
-	local SID = player:getModData().ID;
-	if (not SID) then return false end
-	if (Speech[SID] == nil) then
-		Speech[SID] = {};
-		SpeechLevel[SID] = {};
-	end
+function LMSConditions.doMoodleCheck(player, LMSMoodleLevel, LMSMoodleType, conditionTable, indexNumber)
+	if not player then return end
+	local SID = player:getModData().ID
+	if not SID then return end
 	local SS = SSM:Get(SID)
+	if not SS or SS:isSpeaking() then return end
 
-	if ((MoodleType.Panic == LMSMoodleType) and (player:getVehicle() ~= nil)) or not SS or (SS:isSpeaking()) then return false end
+	if MoodleType.Panic == LMSMoodleType and player:getVehicle() then return end
 
-	local moodleGet = player:getMoodles():getMoodleLevel(LMSMoodleType)
-	if (Speech[SID] ~= nil) and (SpeechLevel[SID] ~= nil) and (moodleGet == LMSMoodleLevel) and ((Speech[SID][LMSMoodleType] == nil) or (SpeechLevel[SID][LMSMoodleType] == nil) or ((SpeechLevel[SID][LMSMoodleType] ~= moodleGet) or (Speech[SID][LMSMoodleType] ~= LMSMoodleType))) then
-		if (SpeechLevel[SID][LMSMoodleType] == nil) or (moodleGet > SpeechLevel[SID][LMSMoodleType]) then -- prevents conditional speech from toggling for a lower moodle level.
-			--player:Say(tostring(SpeechLevel[SID][LMSMoodleType])..","..tostring(Speech[SID][LMSMoodleType]) .. " "..tostring(moodleGet));
+	Speech[SID] = Speech[SID] or {}
+	SpeechLevel[SID] = SpeechLevel[SID] or {}
 
-			Speech[SID][LMSMoodleType] = LMSMoodleType
-			SpeechLevel[SID][LMSMoodleType] = moodleGet;
+	local currentLevel = player:getMoodles():getMoodleLevel(LMSMoodleType)
+
+	if Speech[SID][LMSMoodleType] ~= LMSMoodleType or SpeechLevel[SID][LMSMoodleType] ~= currentLevel then
+		if not SpeechLevel[SID][LMSMoodleType] or currentLevel > SpeechLevel[SID][LMSMoodleType] then
 			LMSConditions.generateRandomNumber(player, conditionTable)
-		else
-			Speech[SID][LMSMoodleType] = LMSMoodleType
-			SpeechLevel[SID][LMSMoodleType] = moodleGet;
 		end
+		Speech[SID][LMSMoodleType] = LMSMoodleType
+		SpeechLevel[SID][LMSMoodleType] = currentLevel
 	end
 end
 
+-- Core condition checker
 function LMSConditions.checkForConditions(player)
-	if player:isLocalPlayer() == false then
-		--Hunger--
+	if not player or player:isLocalPlayer() then return end
 
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Sick, SurvivorSpeechTable["Sick"], 3)
-		LMSConditions.doMoodleCheck(player, 2, MoodleType.Sick, SurvivorSpeechTable["VSick"], 3)
-		LMSConditions.doMoodleCheck(player, 3, MoodleType.Sick, SurvivorSpeechTable["SSick"], 3)
-		LMSConditions.doMoodleCheck(player, 4, MoodleType.Sick, SurvivorSpeechTable["SSick"], 3)
+	-- Sick
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Sick, SurvivorSpeechTable["Sick"], 3)
+	LMSConditions.doMoodleCheck(player, 2, MoodleType.Sick, SurvivorSpeechTable["VSick"], 3)
+	LMSConditions.doMoodleCheck(player, 3, MoodleType.Sick, SurvivorSpeechTable["SSick"], 3)
+	LMSConditions.doMoodleCheck(player, 4, MoodleType.Sick, SurvivorSpeechTable["SSick"], 3)
 
-		--Hunger--
+	-- Hunger
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Hungry, SurvivorSpeechTable["Hungry"], 3)
+	LMSConditions.doMoodleCheck(player, 2, MoodleType.Hungry, SurvivorSpeechTable["VHungry"], 3)
+	LMSConditions.doMoodleCheck(player, 3, MoodleType.Hungry, SurvivorSpeechTable["Starving"], 3)
+	LMSConditions.doMoodleCheck(player, 4, MoodleType.Hungry, SurvivorSpeechTable["Starving"], 3)
 
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Hungry, SurvivorSpeechTable["Hungry"], 3)
-		LMSConditions.doMoodleCheck(player, 2, MoodleType.Hungry, SurvivorSpeechTable["VHungry"], 3)
-		LMSConditions.doMoodleCheck(player, 3, MoodleType.Hungry, SurvivorSpeechTable["Starving"], 3)
-		LMSConditions.doMoodleCheck(player, 4, MoodleType.Hungry, SurvivorSpeechTable["Starving"], 3)
+	-- Thirst
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Thirst, SurvivorSpeechTable["Thirsty"], 13)
+	LMSConditions.doMoodleCheck(player, 2, MoodleType.Thirst, SurvivorSpeechTable["Thirsty"], 13)
+	LMSConditions.doMoodleCheck(player, 3, MoodleType.Thirst, SurvivorSpeechTable["VThirsty"], 13)
+	LMSConditions.doMoodleCheck(player, 4, MoodleType.Thirst, SurvivorSpeechTable["SThirsty"], 13)
 
-		--Thirst--
+	-- Tired
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Tired, SurvivorSpeechTable["Tired"], 2)
+	LMSConditions.doMoodleCheck(player, 2, MoodleType.Tired, SurvivorSpeechTable["Tired"], 2)
+	LMSConditions.doMoodleCheck(player, 3, MoodleType.Tired, SurvivorSpeechTable["VTired"], 2)
+	LMSConditions.doMoodleCheck(player, 4, MoodleType.Tired, SurvivorSpeechTable["STired"], 2)
 
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Thirst, SurvivorSpeechTable["Thirsty"], 13)
-		LMSConditions.doMoodleCheck(player, 2, MoodleType.Thirst, SurvivorSpeechTable["Thirsty"], 13)
-		LMSConditions.doMoodleCheck(player, 3, MoodleType.Thirst, SurvivorSpeechTable["VThirsty"], 13)
-		LMSConditions.doMoodleCheck(player, 4, MoodleType.Thirst, SurvivorSpeechTable["SThirsty"], 13)
+	-- Boredom
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Bored, LMSConditions.SlightlyBored, 6)
+	LMSConditions.doMoodleCheck(player, 2, MoodleType.Bored, LMSConditions.Bored, 6)
+	LMSConditions.doMoodleCheck(player, 3, MoodleType.Bored, LMSConditions.VeryBored, 6)
+	LMSConditions.doMoodleCheck(player, 4, MoodleType.Bored, LMSConditions.ExtremelyBored, 6)
 
-		--Tired--
+	-- Stress
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Stress, LMSConditions.SlightlyStressed, 12)
+	LMSConditions.doMoodleCheck(player, 2, MoodleType.Stress, LMSConditions.Stressed, 12)
+	LMSConditions.doMoodleCheck(player, 3, MoodleType.Stress, LMSConditions.VeryStressed, 12)
+	LMSConditions.doMoodleCheck(player, 4, MoodleType.Stress, LMSConditions.ExtremelyStressed, 12)
 
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Tired, SurvivorSpeechTable["Tired"], 2)
-		LMSConditions.doMoodleCheck(player, 2, MoodleType.Tired, SurvivorSpeechTable["Tired"], 2)
-		LMSConditions.doMoodleCheck(player, 3, MoodleType.Tired, SurvivorSpeechTable["VTired"], 2)
-		LMSConditions.doMoodleCheck(player, 4, MoodleType.Tired, SurvivorSpeechTable["STired"], 2)
+	-- Panic
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Panic, LMSConditions.SlightlyPanicked, 4)
+	LMSConditions.doMoodleCheck(player, 2, MoodleType.Panic, LMSConditions.Panicked, 4)
+	LMSConditions.doMoodleCheck(player, 3, MoodleType.Panic, LMSConditions.VeryPanicked, 4)
+	LMSConditions.doMoodleCheck(player, 4, MoodleType.Panic, LMSConditions.ExtremelyPanicked, 4)
 
-		--Boredom--
+	-- Zombification
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Zombie, LMSConditions.Zombie, 18)
 
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Bored, LMSConditions.SlightlyBored, 6)
-		LMSConditions.doMoodleCheck(player, 2, MoodleType.Bored, LMSConditions.Bored, 6)
-		LMSConditions.doMoodleCheck(player, 3, MoodleType.Bored, LMSConditions.VeryBored, 6)
-		LMSConditions.doMoodleCheck(player, 4, MoodleType.Bored, LMSConditions.ExtremelyBored, 6)
-
-		--Stress--
-
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Stress, LMSConditions.SlightlyStressed, 12)
-		LMSConditions.doMoodleCheck(player, 2, MoodleType.Stress, LMSConditions.Stressed, 12)
-		LMSConditions.doMoodleCheck(player, 3, MoodleType.Stress, LMSConditions.VeryStressed, 12)
-		LMSConditions.doMoodleCheck(player, 4, MoodleType.Stress, LMSConditions.ExtremelyStressed, 12)
-
-		--Panic--
-
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Panic, LMSConditions.SlightlyPanicked, 4)
-		LMSConditions.doMoodleCheck(player, 2, MoodleType.Panic, LMSConditions.Panicked, 4)
-		LMSConditions.doMoodleCheck(player, 3, MoodleType.Panic, LMSConditions.VeryPanicked, 4)
-		LMSConditions.doMoodleCheck(player, 4, MoodleType.Panic, LMSConditions.ExtremelyPanicked, 4)
-
-		--Zombification--
-
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Zombie, LMSConditions.Zombie, 18)
-
-		--Pain--
-
-		LMSConditions.doMoodleCheck(player, 1, MoodleType.Pain, LMSConditions.SlightlyPainful, 15)
-		LMSConditions.doMoodleCheck(player, 2, MoodleType.Pain, LMSConditions.Painful, 15)
-		LMSConditions.doMoodleCheck(player, 3, MoodleType.Pain, LMSConditions.VeryPainful, 15)
-		LMSConditions.doMoodleCheck(player, 4, MoodleType.Pain, LMSConditions.ExtremelyPainful, 15)
-	end
+	-- Pain
+	LMSConditions.doMoodleCheck(player, 1, MoodleType.Pain, LMSConditions.SlightlyPainful, 15)
+	LMSConditions.doMoodleCheck(player, 2, MoodleType.Pain, LMSConditions.Painful, 15)
+	LMSConditions.doMoodleCheck(player, 3, MoodleType.Pain, LMSConditions.VeryPainful, 15)
+	LMSConditions.doMoodleCheck(player, 4, MoodleType.Pain, LMSConditions.ExtremelyPainful, 15)
 end
 
 Events.OnLoad.Add(LMSConditions.checkIfLoaded)
---Events.OnWeaponSwing.Add(LMSConditions.checkIfAttacking)
+-- Events.OnWeaponSwing.Add(LMSConditions.checkIfAttacking) -- Optional: for empty gun feedback
