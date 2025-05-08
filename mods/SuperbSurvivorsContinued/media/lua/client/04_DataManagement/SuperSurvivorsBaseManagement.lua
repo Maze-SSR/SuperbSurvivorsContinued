@@ -1,134 +1,150 @@
-SuperSurvivorSelectArea = {};
+SuperSurvivorSelectArea = {}
 
--- WIP - Cows: This was moved out of SuperSurvivorsMod.lua... it had nothing to do with "survivor" itself, and its only the handling group's base area selection.
-SuperSurvivorSelectAnArea = false;
-SuperSurvivorMouseDownTicks = 0;
+-- Flag to trigger area selection
+SuperSurvivorSelectAnArea = false
+SuperSurvivorMouseDownTicks = 0
 
--- Begin selectBaseArea
+-- Utility: Get local player (for future MP safety)
+local function getPlayer()
+    return getSpecificPlayer(0) -- TODO: Update for MP later
+end
+
+-- Highlight selection logic
 local function selectBaseArea()
-    if (SuperSurvivorSelectAnArea) then
-        if (Mouse.isLeftDown()) then
-            SuperSurvivorMouseDownTicks = SuperSurvivorMouseDownTicks + 1
-        else
-            SuperSurvivorMouseDownTicks = 0;
-            SuperSurvivorSelectingArea = false;
+    if not SuperSurvivorSelectAnArea then return end
+
+    if Mouse.isLeftDown() then
+        SuperSurvivorMouseDownTicks = SuperSurvivorMouseDownTicks + 1
+    else
+        SuperSurvivorMouseDownTicks = 0
+        SuperSurvivorSelectingArea = false
+    end
+
+    if SuperSurvivorMouseDownTicks > 15 then
+        if not Highlightcenter or not SuperSurvivorSelectingArea then
+            local sq = GetMouseSquare()
+            Highlightcenter = sq
+            HighlightX1 = sq:getX()
+            HighlightX2 = sq:getX()
+            HighlightY1 = sq:getY()
+            HighlightY2 = sq:getY()
         end
 
-        if (SuperSurvivorMouseDownTicks > 15) then -- 10 acts instant, so a left click would reset the select area finalization.
-            if (Highlightcenter == nil) or (not SuperSurvivorSelectingArea) then
-                Highlightcenter = GetMouseSquare();
-                HighlightX1 = GetMouseSquareX();
-                HighlightX2 = GetMouseSquareX();
-                HighlightY1 = GetMouseSquareY();
-                HighlightY2 = GetMouseSquareY();
-            end
+        SuperSurvivorSelectingArea = true
 
-            SuperSurvivorSelectingArea = true;
+        local mouseX, mouseY = GetMouseSquareX(), GetMouseSquareY()
 
-            if (HighlightX1 == nil) or (HighlightX1 > GetMouseSquareX()) then HighlightX1 = GetMouseSquareX() end
-            if (HighlightX2 == nil) or (HighlightX2 <= GetMouseSquareX()) then HighlightX2 = GetMouseSquareX() end
-            if (HighlightY1 == nil) or (HighlightY1 > GetMouseSquareY()) then HighlightY1 = GetMouseSquareY() end
-            if (HighlightY2 == nil) or (HighlightY2 <= GetMouseSquareY()) then HighlightY2 = GetMouseSquareY() end
-        elseif (SuperSurvivorSelectingArea) then
-            SuperSurvivorSelectingArea = false;
-        end
+        if not HighlightX1 or HighlightX1 > mouseX then HighlightX1 = mouseX end
+        if not HighlightX2 or HighlightX2 <= mouseX then HighlightX2 = mouseX end
+        if not HighlightY1 or HighlightY1 > mouseY then HighlightY1 = mouseY end
+        if not HighlightY2 or HighlightY2 <= mouseY then HighlightY2 = mouseY end
 
-        if (Mouse.isLeftPressed()) then
-            SuperSurvivorSelectingArea = false; -- new
-        end
+    elseif SuperSurvivorSelectingArea then
+        SuperSurvivorSelectingArea = false
+    end
 
-        if (HighlightX1) and (HighlightX2) then
-            local x1 = HighlightX1;
-            local x2 = HighlightX2;
-            local y1 = HighlightY1;
-            local y2 = HighlightY2;
+    if Mouse.isLeftPressed() then
+        SuperSurvivorSelectingArea = false
+    end
 
-            for xx = x1, x2 do
-                for yy = y1, y2 do
-                    local sq = getCell():getGridSquare(xx, yy, getSpecificPlayer(0):getZ());
-                    if (sq) and (sq:getFloor()) then
-                        sq:getFloor():setHighlighted(true);
-                    end
+    -- Visual highlighting
+    if HighlightX1 and HighlightX2 then
+        local player = getPlayer()
+        local z = player and player:getZ() or 0
+
+        for xx = HighlightX1, HighlightX2 do
+            for yy = HighlightY1, HighlightY2 do
+                local sq = getCell():getGridSquare(xx, yy, z)
+                if sq and sq:getFloor() then
+                    sq:getFloor():setHighlighted(true)
                 end
             end
         end
     end
 end
 
---
+-- Start selection mode
 function StartSelectingArea(test, area)
-    local isLocalFunctionLoggingEnabled = false;
-    for k, v in pairs(SuperSurvivorSelectArea) do
+    local isLocalFunctionLoggingEnabled = false
+
+    -- Reset area selection flags
+    for k in pairs(SuperSurvivorSelectArea) do
         SuperSurvivorSelectArea[k] = false
     end
 
-    CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "starting selectBaseArea()...");
-    SuperSurvivorSelectArea[area] = true;
-    SuperSurvivorSelectAnArea = true;
-    Events.OnRenderTick.Add(selectBaseArea);
-    local mySS = SSM:Get(0)
-    local gid = mySS:getGroupID()
-    if (not gid) then return false end
-    local group = SSGM:GetGroupById(gid)
-    if (not group) then return false end
+    CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "starting selectBaseArea()...")
 
-    if (area == "BaseArea") then
-        local baseBounds = group:getBounds();
-        HighlightX1 = baseBounds[1];
-        HighlightX2 = baseBounds[2];
-        HighlightY1 = baseBounds[3];
-        HighlightY2 = baseBounds[4];
-        HighlightZ = baseBounds[5];
-    else
-        local bounds = group:getGroupArea(area);
-        HighlightX1 = bounds[1];
-        HighlightX2 = bounds[2];
-        HighlightY1 = bounds[3];
-        HighlightY2 = bounds[4];
-        HighlightZ = bounds[5];
+    SuperSurvivorSelectArea[area] = true
+    SuperSurvivorSelectAnArea = true
+    Events.OnRenderTick.Add(selectBaseArea)
+
+    local mySS = SSM:Get(0)
+    if not mySS then return false end
+
+    local gid = mySS:getGroupID()
+    if not gid then return false end
+
+    local group = SSGM:GetGroupById(gid)
+    if not group then return false end
+
+    local bounds = (area == "BaseArea") and group:getBounds() or group:getGroupArea(area)
+    if bounds then
+        HighlightX1, HighlightX2 = bounds[1], bounds[2]
+        HighlightY1, HighlightY2 = bounds[3], bounds[4]
+        HighlightZ = bounds[5]
     end
 end
 
---
+-- Finalize or cancel selection
 function SelectingArea(test, area, value)
-    local isLocalFunctionLoggingEnabled = false;
-    CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "function: SelectingArea() called");
-    -- value 0 means cancel, -1 is clear, 1 is set
-    if (value ~= 0) then
-        if (value == -1) then
-            HighlightX1 = 0
-            HighlightX2 = 0
-            HighlightY1 = 0
-            HighlightY2 = 0
+    local isLocalFunctionLoggingEnabled = false
+    CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "function: SelectingArea() called")
+
+    if value ~= 0 then
+        if value == -1 then
+            HighlightX1, HighlightX2 = 0, 0
+            HighlightY1, HighlightY2 = 0, 0
         end
 
         local mySS = SSM:Get(0)
-        local gid = mySS:getGroupID()
-        if (not gid) then return false end
-        local group = SSGM:GetGroupById(gid)
-        if (not group) then return false end
+        if not mySS then return false end
 
-        if (area == "BaseArea") then
+        local gid = mySS:getGroupID()
+        if not gid then return false end
+
+        local group = SSGM:GetGroupById(gid)
+        if not group then return false end
+
+        local z = getPlayer() and getPlayer():getZ() or 0
+
+        if area == "BaseArea" then
             local baseBounds = {
-                math.floor(HighlightX1),
-                math.floor(HighlightX2),
-                math.floor(HighlightY1),
-                math.floor(HighlightY2),
-                math.floor(getSpecificPlayer(0):getZ())
+                math.floor(HighlightX1 or 0),
+                math.floor(HighlightX2 or 0),
+                math.floor(HighlightY1 or 0),
+                math.floor(HighlightY2 or 0),
+                math.floor(z)
             }
-            group:setBounds(baseBounds);
-            CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "set base bounds:" ..
-                tostring(HighlightX1) .. "," ..
-                tostring(HighlightX2) .. " : " .. tostring(HighlightY1) .. "," .. tostring(HighlightY2));
+            group:setBounds(baseBounds)
+
+            CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled,
+                "set base bounds: " .. tostring(HighlightX1) .. "," .. tostring(HighlightX2) ..
+                " : " .. tostring(HighlightY1) .. "," .. tostring(HighlightY2))
         else
-            group:setGroupArea(area, math.floor(HighlightX1), math.floor(HighlightX2), math.floor(HighlightY1),
-                math.floor(HighlightY2), getSpecificPlayer(0):getZ())
+            group:setGroupArea(area,
+                math.floor(HighlightX1 or 0),
+                math.floor(HighlightX2 or 0),
+                math.floor(HighlightY1 or 0),
+                math.floor(HighlightY2 or 0),
+                math.floor(z)
+            )
         end
     end
 
-    CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "stopping SelectBaseArea()...");
-    SuperSurvivorSelectArea[area] = false;
-    SuperSurvivorSelectAnArea = false;
-    Events.OnRenderTick.Remove(selectBaseArea);
-    CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "--- function: SelectingArea() end ---");
+    -- Clean up
+    CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "stopping SelectBaseArea()...")
+    SuperSurvivorSelectArea[area] = false
+    SuperSurvivorSelectAnArea = false
+    Events.OnRenderTick.Remove(selectBaseArea)
+    CreateLogLine("SuperSurvivorsBaseManagement", isLocalFunctionLoggingEnabled, "--- function: SelectingArea() end ---")
 end
