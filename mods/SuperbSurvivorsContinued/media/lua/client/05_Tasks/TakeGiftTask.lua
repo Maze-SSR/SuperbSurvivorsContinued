@@ -1,125 +1,124 @@
 TakeGiftTask = {}
 TakeGiftTask.__index = TakeGiftTask
 
-local isLocalLoggingEnabled = false;
+local isLocalLoggingEnabled = false
+local TRANSFER_SPEED = 20
+local MAX_TASK_TICKS = 30 -- Adjusted to provide ample timeout
 
 function TakeGiftTask:new(superSurvivor, gift)
-	CreateLogLine("TakeGiftTask", isLocalLoggingEnabled, "function: TakeGiftTask:new() called");
-	local o = {}
-	setmetatable(o, self)
-	self.__index = self
+    CreateLogLine("TakeGiftTask", isLocalLoggingEnabled, "function: TakeGiftTask:new() called")
+    local o = setmetatable({}, self)
 
-	o.parent = superSurvivor
-	o.Name = "Take Gift"
-	o.TheGift = gift
-	o.DestContainer = superSurvivor:getBag()
-	if (IsItemWater(gift)) then
-		o.DestContainer = superSurvivor:Get():getInventory();
-	end
-	o.SrcContainer = nil
-	o.OnGoing = false
-	o.Ticks = 0
-	o.Complete = false
+    o.parent = superSurvivor
+    o.Name = "Take Gift"
+    o.TheGift = gift
+    o.DestContainer = superSurvivor:getBag() or superSurvivor:Get():getInventory()
 
-	return o
+    if IsItemWater(gift) then
+        o.DestContainer = superSurvivor:Get():getInventory()
+    end
+
+    o.SrcContainer = nil
+    o.Ticks = 0
+    o.Complete = false
+
+    return o
 end
 
 function TakeGiftTask:isComplete()
-	if (self.Complete) then
-		if (self.DestContainer:FindAndReturnCategory("Weapon") ~= nil) and (self.parent:Get():getPrimaryHandItem() == nil) then
-			local weapon = self.DestContainer:FindAndReturnCategory("Weapon")
-			self.parent:giveWeapon(weapon, true)
-		end
-	end
-	return self.Complete
+    if self.Complete and self.DestContainer then
+        local weapon = self.DestContainer:FindAndReturnCategory("Weapon")
+        if weapon and not self.parent:Get():getPrimaryHandItem() then
+            self.parent:giveWeapon(weapon, true)
+        end
+    end
+    return self.Complete
 end
 
 function TakeGiftTask:isValid()
-	if not self.parent or self.TheGift == nil then
-		return false
-	else
-		return true
-	end
+    return self.parent and self.TheGift
 end
 
 function TakeGiftTask:update()
-	if (not self:isValid()) then
-		self.Complete = true
-		return false
-	end
+    if not self:isValid() or self.Complete then
+        self.Complete = true
+        return
+    end
 
-	if (self.parent:isInAction() == false) then
-		local x, y, z
-		if (self.TheGift:getWorldItem() ~= nil) then
-			x = self.TheGift:getWorldItem():getX()
-			y = self.TheGift:getWorldItem():getY()
-			z = self.TheGift:getWorldItem():getZ()
-			self.SrcContainer = "Ground"
-		elseif (self.TheGift:getContainer() ~= nil) and (self.TheGift:getContainer():getSourceGrid() ~= nil) then
-			x = self.TheGift:getContainer():getSourceGrid():getX()
-			y = self.TheGift:getContainer():getSourceGrid():getY()
-			z = self.TheGift:getContainer():getSourceGrid():getZ()
-			self.SrcContainer = self.TheGift:getContainer()
-		end
-		local sq
-		if (x ~= nil) then
-			sq = self.parent:Get():getCell():getGridSquare(math.floor(x), math.floor(y), math.floor(z))
-		else
-			self.Complete = true
-			return false
-		end
-		local distance = GetDistanceBetween(self.parent:Get(), sq)
+    if not self.parent:isInAction() then
+        local giftItem = self.TheGift
+        local giftWorldItem = giftItem:getWorldItem()
+        local x, y, z, sq
 
-		if (not self.DestContainer:contains(self.TheGift)) and (distance < 2.0) then
-			self.parent:RoleplaySpeak(Get_SS_UIActionText("Takes_Before") ..
-			self.TheGift:getDisplayName() .. Get_SS_UIActionText("Takes_After"))
+        if giftWorldItem then
+            x, y, z = giftWorldItem:getX(), giftWorldItem:getY(), giftWorldItem:getZ()
+            self.SrcContainer = "Ground"
+        elseif giftItem:getContainer() and giftItem:getContainer():getSourceGrid() then
+            local sourceGrid = giftItem:getContainer():getSourceGrid()
+            x, y, z = sourceGrid:getX(), sourceGrid:getY(), sourceGrid:getZ()
+            self.SrcContainer = giftItem:getContainer()
+        else
+            CreateLogLine("TakeGiftTask", isLocalLoggingEnabled, "Gift source unknown, aborting.")
+            self.Complete = true
+            return
+        end
 
-			if (self.SrcContainer == "Ground") then
-				self.DestContainer:AddItem(self.TheGift)
-				self.TheGift:getWorldItem():getSquare():removeWorldObject(self.TheGift:getWorldItem())
-				if (self.TheGift:getWorldItem() ~= nil) then self.TheGift:getWorldItem():removeFromSquare() end
-				self.TheGift:setWorldItem(nil)
+        if x then
+            sq = self.parent:Get():getCell():getGridSquare(math.floor(x), math.floor(y), math.floor(z))
+        else
+            self.Complete = true
+            return
+        end
 
-				self.parent:Speak(Get_SS_DialogueSpeech("Thanks"))
-				self.Complete = true
+        local distance = GetDistanceBetween(self.parent:Get(), sq)
 
-				local itemType = self.TheGift:getType()
+        if not self.DestContainer:contains(giftItem) and distance < 2.0 then
+            self.parent:RoleplaySpeak(Get_SS_UIActionText("Takes_Before") .. giftItem:getDisplayName() .. Get_SS_UIActionText("Takes_After"))
 
-				if self.TheGift:getCategory() == "Container" then
-					self.parent:getBag():Remove(self.TheGift)
-					self.parent:Get():getInventory():AddItem(self.TheGift)
-					self.parent:RoleplaySpeak(Get_SS_UIActionText("SD_EquipsArmor"))
-					self.parent.player:setClothingItem_Back(self.TheGift)
-				elseif instanceof(self.TheGift, "Clothing") then
-					self.parent:getBag():Remove(self.TheGift)
-					self.parent:Get():getInventory():AddItem(self.TheGift)
-					self.parent:RoleplaySpeak(Get_SS_UIActionText("EquipsArmor"))
-					self.parent:WearThis(self.TheGift)
-				end
-			else
-				self.parent:StopWalk()
-				ISTimedActionQueue.add(ISInventoryTransferAction:new(self.parent.player, self.TheGift,
-					self.TheGift:getContainer(), self.parent:getBag(), 20))
-			end
-		elseif (self.DestContainer:contains(self.TheGift)) then
-			self.parent:Speak(Get_SS_DialogueSpeech("Thanks"))
-			self.Complete = true
+            if self.SrcContainer == "Ground" and giftWorldItem then
+                self.DestContainer:AddItem(giftItem)
+                local square = giftWorldItem:getSquare()
+                if square then square:removeWorldObject(giftWorldItem) end
+                giftWorldItem:removeFromSquare()
+                giftItem:setWorldItem(nil)
 
-			local itemType = self.TheGift:getType()
-			if self.TheGift:isClothing() then
-				self.parent:getBag():Remove(self.TheGift)
-				self.parent:Get():getInventory():AddItem(self.TheGift)
-				self.parent:RoleplaySpeak(Get_SS_UIActionText("EquipsArmor"))
-				self.parent:WearThis(self.TheGift)
-			end
-		else
-			if (x ~= nil) then
-				local sq = self.parent:Get():getCell():getGridSquare(math.floor(x), math.floor(y), math.floor(z))
-				if (sq ~= nil) then self.parent:walkTo(sq) end
-			end
-		end
+                self.parent:Speak(Get_SS_DialogueSpeech("Thanks"))
+                self.Complete = true
 
-		self.Ticks = self.Ticks + 1
-		if (self.Ticks > 15) then self.Complete = true end
-	end
+                self:HandleSpecialItem(giftItem)
+            elseif self.SrcContainer ~= "Ground" then
+                ISTimedActionQueue.add(ISInventoryTransferAction:new(self.parent.player, giftItem, self.SrcContainer, self.DestContainer, TRANSFER_SPEED))
+                -- Mark complete after transfer is queued to avoid endless looping
+                self.Complete = true
+            end
+        elseif self.DestContainer:contains(giftItem) then
+            self.parent:Speak(Get_SS_DialogueSpeech("Thanks"))
+            self.Complete = true
+            self:HandleSpecialItem(giftItem)
+        else
+            if sq then self.parent:walkTo(sq) end
+        end
+
+        self.Ticks = self.Ticks + 1
+        if self.Ticks > MAX_TASK_TICKS then
+            CreateLogLine("TakeGiftTask", isLocalLoggingEnabled, "Timed out while trying to take gift.")
+            self.Complete = true
+        end
+    end
+end
+
+function TakeGiftTask:HandleSpecialItem(item)
+    if item:isClothing() then
+        self.DestContainer:Remove(item)
+        local inv = self.parent:Get():getInventory()
+        inv:AddItem(item)
+        self.parent:RoleplaySpeak(Get_SS_UIActionText("EquipsArmor"))
+        self.parent:WearThis(item)
+    elseif item:getCategory() == "Container" then
+        self.DestContainer:Remove(item)
+        local inv = self.parent:Get():getInventory()
+        inv:AddItem(item)
+        self.parent:RoleplaySpeak(Get_SS_UIActionText("SD_EquipsArmor"))
+        self.parent.player:setClothingItem_Back(item)
+    end
 end
