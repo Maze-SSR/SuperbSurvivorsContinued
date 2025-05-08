@@ -23,6 +23,8 @@ function ListenTask:new(superSurvivor, TalkToMe, selfInitiated)
 	o.parent:StopWalk()
 	superSurvivor:Speak(Get_SS_DialogueSpeech("Respond"))
 
+	o.lastUpdateTime = getGameTime():getWorldAgeSeconds()
+
 	return o
 end
 
@@ -52,8 +54,13 @@ end
 function ListenTask:update()
 	if (not self:isValid()) then return false end
 
+	-- Tick delta fix
+	local now = getGameTime():getWorldAgeSeconds()
+	local delta = now - (self.lastUpdateTime or now)
+	self.TicksSinceLastExchange = self.TicksSinceLastExchange + delta
+	self.lastUpdateTime = now
+
 	if (self.parent:isInAction() == false) then
-		self.TicksSinceLastExchange = self.TicksSinceLastExchange + 1
 		local distance = GetDistanceBetween(self.parent.player, self.Aite)
 		if (distance > 1.8) then
 			self.parent:walkTo(self.Aite:getCurrentSquare())
@@ -72,14 +79,14 @@ function ListenTask:update()
 					self.parent:Speak(Get_SS_Dialogue("WhatYouWant"))
 				end
 			elseif (self.parent.player:isLocalPlayer() == false) then
-				if (ZombRand(2) == 0) and
-					(self.parent:isSpeaking() == false) and
-					(self.SSAite:isSpeaking() == false) and (not CanIdleChat) then
+				if (ZombRand(2) == 0)
+					and (self.parent:isSpeaking() == false)
+					and (self.SSAite:isSpeaking() == false)
+					and (not CanIdleChat)
+				then
 					self.parent:Speak(Get_SS_DialogueSpeech("IdleChatter"))
 				end
 			end
 		end
-	else
-		self.TicksSinceLastExchange = self.TicksSinceLastExchange + 0.5
 	end
 end
