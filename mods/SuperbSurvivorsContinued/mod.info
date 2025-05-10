@@ -1,6 +1,7 @@
-name=Superb Survivors continued
+name=The Rebirth: Survivors Reborn
+id=SurvivorsReborn
 poster=poster.png
-id=SuperbSurvivorsContinued
-description=You will find other Survivors to join you
-url=https://github.com/shadowhunter100/SuperbSurvivorsContinued
-versionMin=41.1
+description=An immersive AI Survivor Overhaul for Project Zomboid Build 42.7.0. Survivors live, scavenge, form groups, and survive the long haul with you. Trust no one. Rebuild everything.
+version=0.9.0
+versionMin=42.7
+author=Christine Bremner
